@@ -1,0 +1,25 @@
+[package]
+name = "marketplace_manager"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "marketplace_manager"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }
+anchor-spl = { version = "0.28.0" }
+account-compression-cpi = { path = "../../../account-compression-anchor-gen/programs/account-compression", features = ["cpi"] }
+bubblegum-cpi = { path = "../../../account-compression-anchor-gen/programs/bubblegum" , features = ["cpi"]}
+mpl-token-metadata = { version = "1.13.2", features = ["no-entrypoint"] }
+spl-token-2022 = { version = "0.6.1", features = ["no-entrypoint"] }
+spl-token = { version = "3.5.0", features = ["no-entrypoint"] } 
