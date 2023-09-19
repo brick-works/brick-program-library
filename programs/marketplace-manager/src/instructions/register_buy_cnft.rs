@@ -10,7 +10,7 @@ use {
     },    
     anchor_spl::{
         token_interface::{Mint, TokenInterface, TokenAccount},
-        token::{transfer, Transfer, ID as TokenProgramV0},
+        token::{transfer, Transfer},
     },
     spl_token::native_mint::ID as NativeMint,
     bubblegum_cpi::{
@@ -32,8 +32,7 @@ pub struct RegisterBuyCnftParams {
 #[derive(Accounts)]
 pub struct RegisterBuyCnft<'info> {
     pub system_program: Program<'info, System>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram, executable)]
-    pub token_program_v0: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub rent: Sysvar<'info, Rent>,
     pub log_wrapper: Program<'info, Noop>,
     pub bubblegum_program: Program<'info, Bubblegum>,
@@ -68,8 +67,7 @@ pub struct RegisterBuyCnft<'info> {
         mut,
         seeds = [
             b"product".as_ref(),
-            product.first_id.as_ref(),
-            product.second_id.as_ref(),
+            product.id.as_ref(),
             product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
@@ -125,7 +123,7 @@ pub struct RegisterBuyCnft<'info> {
             product.authority.as_ref(),
             marketplace.key().as_ref(),
         ],
-        bump = seller_reward.bumps.bump
+        bump = seller_reward.bump
     )]
     pub seller_reward: Option<Account<'info, Reward>>,
     #[account(mut)]
@@ -137,7 +135,7 @@ pub struct RegisterBuyCnft<'info> {
             signer.key().as_ref(),
             marketplace.key().as_ref(),
         ],
-        bump = buyer_reward.bumps.bump
+        bump = buyer_reward.bump
     )]
     pub buyer_reward: Option<Account<'info, Reward>>,
     #[account(mut)]
@@ -220,7 +218,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftPara
             .ok_or(ErrorCode::OptionalAccountNotProvided)?;
 
         handle_spl(
-            ctx.accounts.token_program_v0.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
             ctx.accounts.signer.to_account_info(),
             marketplace_transfer_vault.to_account_info(),
             seller_transfer_vault.to_account_info(),
@@ -272,7 +270,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftPara
 
         transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program_v0.to_account_info(), 
+                ctx.accounts.token_program.to_account_info(), 
                 Transfer {
                     from: bounty_vault.to_account_info(),
                     to: seller_reward_vault.to_account_info(),
@@ -285,7 +283,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftPara
 
         transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program_v0.to_account_info(), 
+                ctx.accounts.token_program.to_account_info(), 
                 Transfer {
                     from: bounty_vault.to_account_info(),
                     to: buyer_reward_vault.to_account_info(),
@@ -299,8 +297,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftPara
 
     let product_seeds = &[
         b"product".as_ref(),
-        ctx.accounts.product.first_id.as_ref(),
-        ctx.accounts.product.second_id.as_ref(),
+        ctx.accounts.product.id.as_ref(),
         marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];

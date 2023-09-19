@@ -11,10 +11,7 @@ pub struct EditMarketplaceParams {
     pub fee_reduction: u16,
     pub seller_reward: u16,
     pub buyer_reward: u16,
-    pub use_cnfts: bool,
-    pub deliver_token: bool,
     pub transferable: bool,
-    pub chain_counter: bool,
     pub permissionless: bool,
     pub rewards_enabled: bool,
     pub fee_payer: PaymentFeePayer,
@@ -49,10 +46,7 @@ pub fn handler<'info>(
     }
 
     (*ctx.accounts.marketplace).token_config = TokenConfig {
-        use_cnfts: params.use_cnfts,
-        deliver_token: params.deliver_token,
         transferable: params.transferable,
-        chain_counter: params.chain_counter,
     };
     (*ctx.accounts.marketplace).permission_config = PermissionConfig {
         permissionless: params.permissionless,
@@ -66,7 +60,6 @@ pub fn handler<'info>(
     };
     (*ctx.accounts.marketplace).rewards_config = RewardsConfig {
         reward_mint: ctx.accounts.reward_mint.key(),
-        bounty_vaults: ctx.accounts.marketplace.rewards_config.bounty_vaults.clone(),
         seller_reward: params.seller_reward,
         buyer_reward: params.buyer_reward,
         rewards_enabled: params.rewards_enabled,

@@ -17,8 +17,7 @@ use {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitProductParams {
-    pub first_id: [u8; 32],
-    pub second_id: [u8; 32],
+    pub id: [u8; 16],
     pub product_price: u64,
     pub product_mint_bump: u8
 }
@@ -28,7 +27,7 @@ pub struct InitProductParams {
 pub struct InitProduct<'info> {
     pub system_program: Program<'info, System>,
     #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_2022: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -47,8 +46,7 @@ pub struct InitProduct<'info> {
         space = PRODUCT_SIZE,
         seeds = [
             b"product".as_ref(),
-            params.first_id.as_ref(),
-            params.second_id.as_ref(),
+            params.id.as_ref(),
             marketplace.key().as_ref(),
         ],
         bump,
@@ -100,8 +98,7 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
     let product_key = ctx.accounts.product.key();
     
     (*ctx.accounts.product).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.product).first_id = params.first_id;
-    (*ctx.accounts.product).second_id = params.second_id; 
+    (*ctx.accounts.product).id = params.id;
     (*ctx.accounts.product).marketplace = marketplace_key;
     (*ctx.accounts.product).product_mint = ctx.accounts.product_mint.key();
     (*ctx.accounts.product).seller_config = SellerConfig {
@@ -125,8 +122,7 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
 
     let product_seeds = &[
         b"product".as_ref(),
-        ctx.accounts.product.first_id.as_ref(),
-        ctx.accounts.product.second_id.as_ref(),
+        ctx.accounts.product.id.as_ref(),
         marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
@@ -142,7 +138,7 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
         product_seeds.to_vec(),
         extensions,
         ctx.accounts.system_program.to_account_info(),
-        ctx.accounts.token_program_2022.to_account_info(),
+        ctx.accounts.token_program.to_account_info(),
         ctx.accounts.rent.to_account_info(),
         ctx.accounts.product_mint.to_account_info(),
         ctx.accounts.product.to_account_info(),

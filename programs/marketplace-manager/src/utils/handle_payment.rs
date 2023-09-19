@@ -65,7 +65,7 @@ pub fn handle_sol<'info>(
 }
 
 pub fn handle_spl<'info>(
-    token_program_v0: AccountInfo<'info>,
+    token_program: AccountInfo<'info>,
     signer: AccountInfo<'info>,
     marketplace_transfer_vault: AccountInfo<'info>,
     seller_transfer_vault: AccountInfo<'info>,
@@ -83,7 +83,7 @@ pub fn handle_spl<'info>(
 
         transfer(
             CpiContext::new(
-                token_program_v0.clone(), 
+                token_program.clone(), 
                 Transfer {
                     from: buyer_transfer_vault.clone(),
                     to: marketplace_transfer_vault,
@@ -95,7 +95,7 @@ pub fn handle_spl<'info>(
 
         transfer(
             CpiContext::new(
-                token_program_v0, 
+                token_program, 
                 Transfer {
                     from: buyer_transfer_vault,
                     to: seller_transfer_vault,
@@ -107,7 +107,7 @@ pub fn handle_spl<'info>(
     } else {
         transfer(
             CpiContext::new(
-                token_program_v0, 
+                token_program, 
                 Transfer {
                     from: buyer_transfer_vault,
                     to: seller_transfer_vault,

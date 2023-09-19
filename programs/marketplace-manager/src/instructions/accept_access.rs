@@ -14,7 +14,7 @@ use {
 pub struct AcceptAccess<'info> {
     pub system_program: Program<'info, System>,
     #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_2022: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
@@ -60,7 +60,7 @@ pub struct AcceptAccess<'info> {
         payer = signer,
         associated_token::mint = access_mint,
         associated_token::authority = receiver,
-        associated_token::token_program = token_program_2022
+        associated_token::token_program = token_program
     )]
     pub access_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }
@@ -75,7 +75,7 @@ pub fn handler<'info>(ctx: Context<AcceptAccess>) -> Result<()> {
 
     mint_to(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program_2022.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
             MintTo {
                 mint: ctx.accounts.access_mint.to_account_info(),
                 to: ctx.accounts.access_vault.to_account_info(),

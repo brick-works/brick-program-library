@@ -67,16 +67,10 @@ pub mod marketplace_manager {
         register_buy_cnft::handler(ctx, params)
     }
 
-    /// manages the transfers (buyer -> seller and fees to marketplace authority)
-    /// initializes the payment account to get the number of purchases
-    pub fn register_buy_counter(ctx: Context<RegisterBuyCounter>, amount: u32) -> Result<()> {
-        register_buy_counter::handler(ctx, amount)
-    }
-
     /// manages the transfers (buyer -> seller and fees to marketplace authority) 
     /// and buyers receive a token as a proof of payment (each product has its own tokenc)
-    pub fn register_buy_token(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()> {
-        register_buy_token::handler(ctx, amount)
+    pub fn register_buy_fungible(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()> {
+        register_buy_fungible::handler(ctx, amount)
     }
 
     /// manages the transfers (buyer -> seller and fees to marketplace authority)
@@ -90,12 +84,12 @@ pub mod marketplace_manager {
         request_access::handler(ctx)
     }
 
-    /// creates on chain request to get access to sell products in a specific marketplace
+    /// creates o new tree related to the product
     pub fn update_tree(ctx: Context<UpdateProductTree>, params: UpdateProductTreeParams) -> Result<()> {
         update_tree::handler(ctx, params)
     }
     
-    /// when promotion is ended users can withdraw the funds stored in the vaults and managed by the reward PFA
+    /// when promotion is ended users can withdraw the funds stored in the vaults, managed by the reward PFA
     pub fn withdraw_reward(ctx: Context<WithdrawReward>) -> Result<()> {
         withdraw_reward::handler(ctx)
     }

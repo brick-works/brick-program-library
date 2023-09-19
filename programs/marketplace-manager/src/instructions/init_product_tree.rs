@@ -13,8 +13,7 @@ use {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitProductTreeParams {
-    pub first_id: [u8; 32],
-    pub second_id: [u8; 32],
+    pub id: [u8; 16],
     pub product_price: u64,
     pub max_depth: u32,
     pub max_buffer_size: u32,
@@ -33,7 +32,7 @@ pub struct InitProductTree<'info> {
     pub system_program: Program<'info, System>,
     pub bubblegum_program: Program<'info, Bubblegum>,
     pub compression_program: Program<'info, SplAccountCompression>,
-    pub token_program_v0: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
@@ -53,8 +52,7 @@ pub struct InitProductTree<'info> {
         space = PRODUCT_SIZE,
         seeds = [
             b"product".as_ref(),
-            params.first_id.as_ref(),
-            params.second_id.as_ref(),
+            params.id.as_ref(),
             marketplace.key().as_ref(),
         ],
         bump,
@@ -67,7 +65,7 @@ pub struct InitProductTree<'info> {
         mint::decimals = 0,
         mint::authority = product,
         mint::freeze_authority = product,
-        mint::token_program = token_program_v0,
+        mint::token_program = token_program,
         seeds = [
             b"product_mint".as_ref(),
             product.key().as_ref(),
@@ -92,7 +90,7 @@ pub struct InitProductTree<'info> {
         payer = signer,
         associated_token::mint = product_mint,
         associated_token::authority = product,
-        associated_token::token_program = token_program_v0
+        associated_token::token_program = token_program
     )]
     pub product_mint_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
@@ -152,19 +150,14 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
         }
     }
 
-    if !ctx.accounts.marketplace.token_config.use_cnfts {
-        return Err(ErrorCode::IncorrectInstruction.into());
-    }
-
     let marketplace_key = ctx.accounts.marketplace.key();
     let product_key = ctx.accounts.product.key();
 
     (*ctx.accounts.product).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.product).first_id = params.first_id;
-    (*ctx.accounts.product).second_id = params.second_id;
-    (*ctx.accounts.product).product_mint = ctx.accounts.product_mint.key();
+    (*ctx.accounts.product).id = params.id;
     (*ctx.accounts.product).marketplace = marketplace_key;
     (*ctx.accounts.product).merkle_tree = ctx.accounts.merkle_tree.key();
+    (*ctx.accounts.product).product_mint = ctx.accounts.product_mint.key();
     (*ctx.accounts.product).seller_config = SellerConfig {
         payment_mint: ctx.accounts.payment_mint.key(),
         product_price: params.product_price,
@@ -186,15 +179,14 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
 
     let product_seeds = &[
         b"product".as_ref(),
-        ctx.accounts.product.first_id.as_ref(),
-        ctx.accounts.product.second_id.as_ref(),
+        ctx.accounts.product.id.as_ref(),
         marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 
     mint_to(
         CpiContext::new_with_signer(
-          ctx.accounts.token_program_v0.to_account_info(),
+          ctx.accounts.token_program.to_account_info(),
           MintTo {
             mint: ctx.accounts.product_mint.to_account_info(),
             to: ctx.accounts.product_mint_vault.to_account_info(),
@@ -247,7 +239,7 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
                 mint_authority: ctx.accounts.product.to_account_info().clone(),
                 metadata: ctx.accounts.metadata.to_account_info().clone(),
                 payer: ctx.accounts.signer.to_account_info().clone(),
-                token_program: ctx.accounts.token_program_v0.to_account_info().clone(),
+                token_program: ctx.accounts.token_program.to_account_info().clone(),
                 system_program: ctx.accounts.system_program.to_account_info().clone(),
                 rent: ctx.accounts.rent.to_account_info().clone(),
             },

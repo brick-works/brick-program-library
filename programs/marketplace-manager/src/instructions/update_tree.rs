@@ -32,8 +32,7 @@ pub struct UpdateProductTree<'info> {
         mut,
         seeds = [
             b"product".as_ref(),
-            product.first_id.as_ref(),
-            product.second_id.as_ref(),
+            product.id.as_ref(),
             product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
@@ -64,8 +63,7 @@ pub fn handler(ctx: Context<UpdateProductTree>, params: UpdateProductTreeParams)
     let marketplace_key = ctx.accounts.marketplace.key();
     let product_seeds: &[&[u8]] = &[
         b"product".as_ref(),
-        ctx.accounts.product.first_id.as_ref(),
-        ctx.accounts.product.second_id.as_ref(),
+        ctx.accounts.product.id.as_ref(),
         marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];

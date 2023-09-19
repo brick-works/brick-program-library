@@ -20,7 +20,7 @@ pub mod user_manager {
         Ok(())
     }
 
-    pub fn init_user(ctx: Context<InitUser>, id: [u8; 32]) -> Result<()> {
+    pub fn init_user(ctx: Context<InitUser>, id: [u8; 16]) -> Result<()> {
         (*ctx.accounts.user).id = id;
         (*ctx.accounts.user).bump = *ctx.bumps.get("user").unwrap();
 
@@ -67,7 +67,7 @@ pub struct InitAdmin<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(id: [u8; 32])]
+#[instruction(id: [u8; 16])]
 pub struct InitUser<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -177,7 +177,7 @@ pub struct Withdraw<'info> {
 
 #[account]
 pub struct User {
-    pub id: [u8; 32],
+    pub id: [u8; 16],
     pub bump: u8
 }
 

@@ -46,8 +46,6 @@ pub enum ErrorCode {
     ClosedPromotion,
     #[msg("Currently you can not withdraw the bonus because the promotion has not finished")]
     OpenPromotion,
-    #[msg("The max size of reward vaults are set at 5")]
-    VaultsVectorFull,
     #[msg("Currently this extension is not supported")]
     ExtensionNotSupported,
     #[msg("Error creating mint account")]

@@ -1,18 +1,13 @@
 use {
     crate::state::*,
-    crate::error::ErrorCode,
     anchor_lang::prelude::*,
-    anchor_spl::{
-        token_interface::{Mint, TokenInterface, TokenAccount},
-        token::ID as TokenProgramV0,
-    }
+    anchor_spl::token_interface::{Mint, TokenInterface, TokenAccount}
 };
 
 #[derive(Accounts)]
 pub struct InitReward<'info> {
     pub system_program: Program<'info, System>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_v0: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -50,25 +45,13 @@ pub struct InitReward<'info> {
         bump,
         token::mint = reward_mint,
         token::authority = reward,
-        token::token_program = token_program_v0,
     )]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }
 
 pub fn handler<'info>(ctx: Context<InitReward>) -> Result<()> {
-    let mut vaults: Vec<Pubkey> = Vec::with_capacity(VAULT_COUNT); 
-    vaults.push(ctx.accounts.reward_vault.key());
-
-    let mut vault_bumps: Vec<u8> = Vec::with_capacity(VAULT_COUNT); 
-    vault_bumps.push(*ctx.bumps.get("reward_vault").unwrap());
-
     (*ctx.accounts.reward).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.reward).marketplace =  ctx.accounts.marketplace.key();
-    (*ctx.accounts.reward).reward_vaults = vaults;
-    (*ctx.accounts.reward).bumps = RewardBumps {
-        bump: *ctx.bumps.get("reward").unwrap(),
-        vault_bumps,
-    };
+    (*ctx.accounts.reward).bump = *ctx.bumps.get("reward").unwrap();
     
     Ok(())
 }

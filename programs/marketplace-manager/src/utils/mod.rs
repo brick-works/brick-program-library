@@ -10,17 +10,11 @@ use anchor_lang::{
     prelude::*,
     solana_program::{program_memory::sol_memcmp, pubkey::PUBKEY_BYTES},
 };
-use crate::{state::{MarketplaceBumps, RewardsConfig}, error::ErrorCode};
+use crate::{state::RewardsConfig, error::ErrorCode};
 use spl_token::native_mint::ID as NativeMint;
 
 pub fn cmp_pubkeys(a: &Pubkey, b: &Pubkey) -> bool {
     sol_memcmp(a.as_ref(), b.as_ref(), PUBKEY_BYTES) == 0
-}
-
-pub fn get_bounty_bump(address: Pubkey, bumps: MarketplaceBumps, bounty_vaults: Vec<Pubkey>) -> u8 {
-    bounty_vaults.iter().position(|&r| r == address)
-        .map(|index| bumps.vault_bumps[index])
-        .unwrap_or(0)
 }
 
 /// Checks if marketplace reward system is active, is active when:

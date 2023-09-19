@@ -1,5 +1,7 @@
+import { PROGRAM_ID as METADATA_PROGRAM } from "@metaplex-foundation/mpl-token-metadata";
+import { PROGRAM_ID as BUBBLEGUM_PROGRAM } from "@metaplex-foundation/mpl-bubblegum";
+import { MarketplaceManager } from "../../target/types/marketplace_manager";
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
 import { assert } from "chai";
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -14,23 +16,29 @@ import {
 import { 
   createFundedAssociatedTokenAccount, 
   createFundedWallet, 
-  createMint, 
-  getSplitId 
-} from "./utils";
+  createMint,
+  delay,
+} from "../utils";
 import { 
+  ComputeBudgetProgram,
   ConfirmOptions, 
   SYSVAR_RENT_PUBKEY, 
   SystemProgram, 
   Transaction 
 } from "@solana/web3.js";
-import { MarketplaceManager } from "../../target/types/marketplace_manager";
 import BN from "bn.js";
-import { v4 as uuid } from "uuid";
+import { v4 as uuid, parse } from "uuid";
+import { 
+  SPL_ACCOUNT_COMPRESSION_ADDRESS, 
+  SPL_ACCOUNT_COMPRESSION_PROGRAM_ID, 
+  SPL_NOOP_PROGRAM_ID, 
+  getConcurrentMerkleTreeAccountSize 
+} from "@solana/spl-account-compression";
 
-describe("brick", () => {
+describe("marketplace_manager", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-  const program = anchor.workspace.MarketplaceManager as Program<MarketplaceManager>;
+  const program = anchor.workspace.MarketplaceManager as anchor.Program<MarketplaceManager>;
   const confirmOptions: ConfirmOptions = { commitment: "confirmed" };
 
   // Keypairs:
@@ -63,10 +71,7 @@ describe("brick", () => {
   let rewardMint: anchor.web3.PublicKey;
   let sellerRewardMarketplace: number;
   let buyerRewardMarketplace: number;
-  let useCnfts: boolean;
-  let deliverToken: boolean;
   let transferable: boolean;
-  let chainCounter: boolean;
   let permissionless: boolean;
   let rewardsEnabled: boolean;
   let accessMint: anchor.web3.PublicKey;
@@ -78,8 +83,14 @@ describe("brick", () => {
 
   // Product properties
   let productPrice: BN;
-  let firstId: Buffer;
-  let secondId: Buffer;
+  let id: Uint8Array;
+
+  // Compression:
+  let merkleTree: anchor.web3.Keypair;
+  let metadata: anchor.web3.PublicKey;
+  let masterEdition: anchor.web3.PublicKey;
+  let treeAuthority: anchor.web3.PublicKey;
+  let bubblegumSigner: anchor.web3.PublicKey;
 
   it("Should create marketplace account", async () => {
     rewardMint = discountMint = paymentMints[0] = await createMint(provider, confirmOptions);
@@ -106,8 +117,8 @@ describe("brick", () => {
     bountyVaults.push([bountyVault, 0])
 
     fee = feeReduction = sellerRewardMarketplace = buyerRewardMarketplace = 0;
-    deliverToken = transferable = rewardsEnabled = useCnfts = false;
-    chainCounter = permissionless = true;
+    transferable = rewardsEnabled = false;
+    permissionless = true;
 
     [accessMint, accessMintBump] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -122,10 +133,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -153,10 +161,7 @@ describe("brick", () => {
 
     const marketplaceAccount = await program.account.marketplace.fetch(marketplacePubkey);
     assert.equal(marketplaceAccount.authority.toString(), marketplaceAuth.publicKey.toString());
-    assert.equal(marketplaceAccount.tokenConfig.useCnfts, useCnfts);
-    assert.equal(marketplaceAccount.tokenConfig.deliverToken, deliverToken);
     assert.equal(marketplaceAccount.tokenConfig.transferable, transferable);
-    assert.equal(marketplaceAccount.tokenConfig.chainCounter, chainCounter);
     assert.equal(marketplaceAccount.permissionConfig.accessMint.toString(), accessMint.toString());
     assert.equal(marketplaceAccount.permissionConfig.permissionless, permissionless);
     assert.equal(marketplaceAccount.feesConfig.discountMint.toString(), discountMint.toString());
@@ -164,7 +169,6 @@ describe("brick", () => {
     assert.equal(marketplaceAccount.feesConfig.feeReduction, feeReduction);
     assert.equal(marketplaceAccount.feesConfig.feePayer.toString(), FeePayer.Seller.toString());
     assert.equal(marketplaceAccount.rewardsConfig.rewardMint.toString(), rewardMint.toString());
-    assert.equal(marketplaceAccount.rewardsConfig.bountyVaults[0].toString(), bountyVaults[0][0].toString());
     assert.equal(marketplaceAccount.rewardsConfig.sellerReward, sellerRewardMarketplace);
     assert.equal(marketplaceAccount.rewardsConfig.buyerReward, buyerRewardMarketplace);
     assert.equal(marketplaceAccount.rewardsConfig.rewardsEnabled, rewardsEnabled);
@@ -190,10 +194,7 @@ describe("brick", () => {
       feeReduction: 100,
       sellerReward: 100,
       buyerReward: 100,
-      useCnfts: !useCnfts,
-      deliverToken: !deliverToken,
       transferable: !transferable,
-      chainCounter: !chainCounter,
       permissionless: !permissionless,
       rewardsEnabled: !rewardsEnabled,
       feePayer: FeePayer.Buyer,
@@ -216,10 +217,7 @@ describe("brick", () => {
     const changedMarketplaceAccount = await program.account.marketplace.fetch(marketplacePubkey);
     assert.isDefined(changedMarketplaceAccount);
     assert.equal(changedMarketplaceAccount.authority.toString(), marketplaceAuth.publicKey.toString());
-    assert.equal(changedMarketplaceAccount.tokenConfig.deliverToken, !deliverToken);
-    assert.equal(changedMarketplaceAccount.tokenConfig.useCnfts, !useCnfts);
     assert.equal(changedMarketplaceAccount.tokenConfig.transferable, !transferable);
-    assert.equal(changedMarketplaceAccount.tokenConfig.chainCounter, !chainCounter);
     assert.equal(changedMarketplaceAccount.permissionConfig.accessMint.toString(), accessMint.toString());
     assert.equal(changedMarketplaceAccount.permissionConfig.permissionless, !permissionless);
     assert.equal(changedMarketplaceAccount.feesConfig.discountMint.toString(), editMarketplaceInfoAccounts.discountMint.toString());
@@ -227,7 +225,6 @@ describe("brick", () => {
     assert.equal(changedMarketplaceAccount.feesConfig.fee, 100);
     assert.equal(changedMarketplaceAccount.feesConfig.feeReduction, 100);
     assert.equal(changedMarketplaceAccount.rewardsConfig.rewardMint.toString(), editMarketplaceInfoAccounts.rewardMint.toString());
-    assert.equal(changedMarketplaceAccount.rewardsConfig.bountyVaults[0].toString(), bountyVaults[0][0].toString());
     assert.equal(changedMarketplaceAccount.rewardsConfig.sellerReward, 100);
     assert.equal(changedMarketplaceAccount.rewardsConfig.buyerReward, 100);
     assert.equal(changedMarketplaceAccount.rewardsConfig.rewardsEnabled, !rewardsEnabled);
@@ -240,10 +237,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       feePayer: FeePayer.Seller,
@@ -273,10 +267,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       feePayer: FeePayer.Seller,
@@ -297,10 +288,7 @@ describe("brick", () => {
     const marketplaceAccount = await program.account.marketplace.fetch(marketplacePubkey);
     assert.isDefined(marketplaceAccount);
     assert.equal(marketplaceAccount.authority.toString(), marketplaceAuth.publicKey.toString());
-    assert.equal(marketplaceAccount.tokenConfig.deliverToken, deliverToken);
-    assert.equal(marketplaceAccount.tokenConfig.useCnfts, useCnfts);
     assert.equal(marketplaceAccount.tokenConfig.transferable, transferable);
-    assert.equal(marketplaceAccount.tokenConfig.chainCounter, chainCounter);
     assert.equal(marketplaceAccount.permissionConfig.accessMint.toString(), accessMint.toString());
     assert.equal(marketplaceAccount.permissionConfig.permissionless, permissionless);
     assert.equal(marketplaceAccount.feesConfig.discountMint.toString(), discountMint.toString());
@@ -308,22 +296,20 @@ describe("brick", () => {
     assert.equal(marketplaceAccount.feesConfig.fee, fee);
     assert.equal(marketplaceAccount.feesConfig.feeReduction, feeReduction);
     assert.equal(marketplaceAccount.rewardsConfig.rewardMint.toString(), rewardMint.toString());
-    assert.equal(marketplaceAccount.rewardsConfig.bountyVaults[0].toString(), bountyVaults[0][0].toString());
     assert.equal(marketplaceAccount.rewardsConfig.sellerReward, sellerRewardMarketplace);
     assert.equal(marketplaceAccount.rewardsConfig.buyerReward, buyerRewardMarketplace);
     assert.equal(marketplaceAccount.rewardsConfig.rewardsEnabled, rewardsEnabled);
   });
 
   it("Should create a product account", async () => {
-    [firstId, secondId] = getSplitId(uuid());
+    id = parse(uuid());
     const balance = 1000;
     seller = await createFundedWallet(provider, balance);
 
     [productPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("product", "utf-8"), 
-        firstId, 
-        secondId,
+        id,
         marketplacePubkey.toBuffer()
       ],
       program.programId
@@ -336,16 +322,14 @@ describe("brick", () => {
       program.programId
     );
     productPrice = new BN(10000);
-
     const initProductParams = {
-      firstId: [...firstId],
-      secondId: [...secondId],
+      id: [...id],
       productPrice: productPrice,
       productMintBump: mintBump,
     };
     const initProductAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: seller.publicKey,
       marketplace: marketplacePubkey,
@@ -366,8 +350,7 @@ describe("brick", () => {
     const productAccount = await program.account.product.fetch(productPubkey);
     assert.isDefined(productAccount);
     assert.equal(productAccount.authority.toString(), seller.publicKey.toString());
-    assert.equal(productAccount.firstId.toString(), [...firstId].toString());
-    assert.equal(productAccount.secondId.toString(), [...secondId].toString());
+    assert.equal(productAccount.id.toString(), id.toString());
     assert.equal(productAccount.marketplace.toString(), marketplacePubkey.toString());
     assert.equal(productAccount.productMint.toString(), productMint.toString());
     assert.equal(productAccount.sellerConfig.paymentMint.toString(), paymentMints[0].toString());
@@ -473,7 +456,7 @@ describe("brick", () => {
 
     const registerBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -493,13 +476,13 @@ describe("brick", () => {
     };
 
     const sig = await program.methods
-      .registerBuyCounter(1)
+      .registerBuy(1)
       .accounts(registerBuyAccounts)
       .signers([buyer])
       .postInstructions(
         [
           await program.methods
-            .registerBuyCounter(1)
+            .registerBuy(1)
             .accounts(registerBuyAccounts)
             .instruction()
         ]
@@ -508,12 +491,6 @@ describe("brick", () => {
       .catch(console.error) as string;
 
     const tx = provider.connection.getParsedTransaction(sig, { commitment: "confirmed"});
-    console.log('Purchase a product, spl as a payment method compute units ' + (await tx).meta.computeUnitsConsumed);
-
-    const paymentAccount = await program.account.payment.fetch(paymentPubkey);
-    assert.isDefined(paymentAccount);
-    assert.equal(paymentAccount.units, 2);
-
     const buyerVaultAccount = await getOrCreateAssociatedTokenAccount(
       provider.connection,
       buyer as anchor.web3.Signer,
@@ -548,10 +525,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      deliverToken: deliverToken,
-      useCnfts: useCnfts,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       feePayer: FeePayer.Seller,
@@ -570,7 +544,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    const [paymentPubkey, bump] = anchor.web3.PublicKey.findProgramAddressSync(
+    const [paymentPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("payment", "utf-8"), 
         buyer.publicKey.toBuffer(), 
@@ -581,7 +555,7 @@ describe("brick", () => {
 
     const registerBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -679,7 +653,7 @@ describe("brick", () => {
 
     const registerBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: seller.publicKey,
@@ -737,10 +711,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       feePayer: FeePayer.Seller,
@@ -770,7 +741,7 @@ describe("brick", () => {
 
     const registerBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -860,10 +831,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -904,7 +872,7 @@ describe("brick", () => {
 
     const initSellerRewardAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: seller.publicKey,
       marketplace: marketplacePubkey,
@@ -923,8 +891,6 @@ describe("brick", () => {
     const sellerRewardAccount = await program.account.reward.fetch(sellerReward);
     assert.isDefined(sellerRewardAccount);
     assert.equal(sellerRewardAccount.authority.toString(), seller.publicKey.toString());
-    assert.equal(sellerRewardAccount.marketplace.toString(), marketplacePubkey.toString());
-    assert.equal(sellerRewardAccount.rewardVaults[0].toString(), sellerRewardVault.toString());
 
     [buyerReward] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -947,7 +913,7 @@ describe("brick", () => {
 
     const initBuyerRewardAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       marketplace: marketplacePubkey,
@@ -965,8 +931,6 @@ describe("brick", () => {
     const buyerRewardAccount = await program.account.reward.fetch(buyerReward);
     assert.isDefined(buyerRewardAccount);
     assert.equal(buyerRewardAccount.authority.toString(), buyer.publicKey.toString());
-    assert.equal(buyerRewardAccount.marketplace.toString(), marketplacePubkey.toString());
-    assert.equal(buyerRewardAccount.rewardVaults[0].toString(), buyerRewardVault.toString());
 
     const [paymentPubkey, bump] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -978,7 +942,7 @@ describe("brick", () => {
     );
     const registerRewardBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -1018,7 +982,7 @@ describe("brick", () => {
       await program.methods
         .withdrawReward()
         .accounts({
-          tokenProgramV0: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
           signer: buyer.publicKey,
           marketplace: marketplacePubkey,
           reward: buyerReward,
@@ -1040,10 +1004,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1068,7 +1029,7 @@ describe("brick", () => {
       await program.methods
         .withdrawReward()
         .accounts({
-          tokenProgramV0: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
           signer: seller.publicKey,
           marketplace: marketplacePubkey,
           reward: buyerReward,
@@ -1086,7 +1047,7 @@ describe("brick", () => {
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: buyer.publicKey,
         marketplace: marketplacePubkey,
         reward: buyerReward,
@@ -1101,7 +1062,7 @@ describe("brick", () => {
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: seller.publicKey,
         marketplace: marketplacePubkey,
         reward: sellerReward,
@@ -1168,10 +1129,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1213,7 +1171,7 @@ describe("brick", () => {
     );
     const registerRewardBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: seller.publicKey,
@@ -1288,10 +1246,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1322,7 +1277,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000);
+    await delay(2000);
 
     const [bountyVault] = anchor.web3.PublicKey.findProgramAddressSync(
       [
@@ -1337,7 +1292,7 @@ describe("brick", () => {
       .initBounty()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: marketplaceAuth.publicKey,
@@ -1377,7 +1332,7 @@ describe("brick", () => {
       .initRewardVault()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: seller.publicKey,
@@ -1405,7 +1360,7 @@ describe("brick", () => {
       .initRewardVault()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: buyer.publicKey,
@@ -1418,7 +1373,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000);
+    await delay(2000);
     const [paymentPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("payment", "utf-8"), 
@@ -1429,7 +1384,7 @@ describe("brick", () => {
     );
     const registerRewardBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -1468,7 +1423,7 @@ describe("brick", () => {
 
     // second time doing the same to test another reward mint (first change marketplace reward mint to check if can be enforced to not get reward with a different mint)
     const newRewardMint = await createMint(provider, confirmOptions);
-    await sleep(2000)
+    await delay(2000)
     marketplaceVaults.push([
       await createFundedAssociatedTokenAccount(
         provider,
@@ -1504,10 +1459,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1526,7 +1478,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000);
+    await delay(2000);
     const [newBountyVault] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("bounty_vault", "utf-8"),
@@ -1539,7 +1491,7 @@ describe("brick", () => {
       .initBounty()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: marketplaceAuth.publicKey,
@@ -1579,7 +1531,7 @@ describe("brick", () => {
       .initRewardVault()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: seller.publicKey,
@@ -1607,7 +1559,7 @@ describe("brick", () => {
       .initRewardVault()
       .accounts({
         systemProgram: SystemProgram.programId,
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
         signer: buyer.publicKey,
@@ -1620,10 +1572,10 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000)
+    await delay(2000)
     const registerNoRewardBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -1670,7 +1622,7 @@ describe("brick", () => {
 
     const newRegisterRewardBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: null,
@@ -1712,10 +1664,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1735,13 +1684,13 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000);
+    await delay(2000);
 
     const preBuyerVault1Funds = await getAccount(provider.connection, buyerVaults[1][0]);
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: buyer.publicKey,
         marketplace: marketplacePubkey,
         reward: buyerReward,
@@ -1753,7 +1702,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(1000);
+    await delay(1000);
     const postBuyerVault1Funds = await getAccount(provider.connection, buyerVaults[1][0]);
     assert.equal(Number(postBuyerVault1Funds.amount - preBuyerVault1Funds.amount), Number(buyerRewardFunds.amount));
 
@@ -1761,7 +1710,7 @@ describe("brick", () => {
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: seller.publicKey,
         marketplace: marketplacePubkey,
         reward: sellerReward,
@@ -1773,7 +1722,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
     
-    await sleep(1000);
+    await delay(1000);
     const postSellerVault1Funds = await getAccount(provider.connection, sellerVaults[1][0]);
     assert.equal(Number(postSellerVault1Funds.amount - preSellerVault1Funds.amount), Number(sellerRewardFunds.amount));
 
@@ -1781,7 +1730,7 @@ describe("brick", () => {
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: buyer.publicKey,
         marketplace: marketplacePubkey,
         reward: buyerReward,
@@ -1793,7 +1742,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(1000);
+    await delay(1000);
     const postBuyerVault2Funds = await getAccount(provider.connection, buyerVaults[2][0]);
     assert.equal(Number(postBuyerVault2Funds.amount - preBuyerVault2Funds.amount), Number(newBuyerRewardFunds.amount));
 
@@ -1801,7 +1750,7 @@ describe("brick", () => {
     await program.methods
       .withdrawReward()
       .accounts({
-        tokenProgramV0: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         signer: seller.publicKey,
         marketplace: marketplacePubkey,
         reward: sellerReward,
@@ -1813,7 +1762,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(1000);
+    await delay(1000);
     const postSellerVault2Funds = await getAccount(provider.connection, sellerVaults[2][0]);
     assert.equal(Number(postSellerVault2Funds.amount - preSellerVault2Funds.amount), Number(newSellerRewardFunds.amount));
   });
@@ -1877,7 +1826,7 @@ describe("brick", () => {
 
     const registerBuyAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgramV0: TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       seller: seller.publicKey,
@@ -1904,7 +1853,7 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    await sleep(2000);
+    await delay(2000);
     const postMarketAuthBalance = await provider.connection.getBalance(marketplaceAuth.publicKey, confirmOptions);
     const postSellerBalance = await provider.connection.getBalance(seller.publicKey, confirmOptions);
     const postBuyerBalance = await provider.connection.getBalance(buyer.publicKey, confirmOptions);
@@ -1915,10 +1864,166 @@ describe("brick", () => {
     assert.equal(postBuyerBalance, buyerBalance - Number(newPrice) - marketplaceFee);
   });
 
+  it("Should create a product account (with a tree)", async () => {
+    id = parse(uuid());
+    [productPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("product", "utf-8"), 
+        id,
+        marketplacePubkey.toBuffer()
+      ],
+      program.programId
+    );
+    [productMint, mintBump] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("product_mint", "utf-8"), 
+        productPubkey.toBuffer()
+      ],
+      program.programId
+    );
+    [masterEdition] = anchor.web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata", "utf-8"),
+          METADATA_PROGRAM.toBuffer(),
+          productMint.toBuffer(),
+          Buffer.from("edition", "utf-8"),
+        ],
+        METADATA_PROGRAM
+    );
+    [metadata] = anchor.web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata", "utf-8"),
+          METADATA_PROGRAM.toBuffer(),
+          productMint.toBuffer(),
+        ],
+        METADATA_PROGRAM
+    );
+    merkleTree = anchor.web3.Keypair.generate();
+    [treeAuthority] = anchor.web3.PublicKey.findProgramAddressSync(
+        [merkleTree.publicKey.toBuffer()], BUBBLEGUM_PROGRAM
+    );
+    productPrice = new BN(10000);
+    const [height, buffer, canopy] = [14, 64, 11];
+    const space = getConcurrentMerkleTreeAccountSize(height, buffer, canopy);
+    const cost = await provider.connection.getMinimumBalanceForRentExemption(space);
+    await provider.sendAndConfirm(
+        new anchor.web3.Transaction()
+          .add(
+            SystemProgram.createAccount({
+                fromPubkey: provider.wallet.publicKey,
+                newAccountPubkey: merkleTree.publicKey,
+                lamports: cost,
+                space: space,
+                programId: SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
+            }),
+          ),
+        [merkleTree]
+    );
+    const initProductParams = {
+        id: [...id],
+        productPrice: productPrice,
+        maxDepth: height,
+        maxBufferSize: buffer,
+        name: "DATASET",
+        metadataUrl: "test",
+        feeBasisPoints: 0,
+        productMintBump: mintBump,
+    };
+    const initProductAccounts = {
+        tokenMetadataProgram: METADATA_PROGRAM,
+        logWrapper: SPL_NOOP_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        bubblegumProgram: BUBBLEGUM_PROGRAM,
+        compressionProgram: SPL_ACCOUNT_COMPRESSION_ADDRESS,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        rent: SYSVAR_RENT_PUBKEY,
+        signer: seller.publicKey,
+        marketplace: marketplacePubkey,
+        product: productPubkey,
+        productMint: productMint,
+        accessMint: null,
+        paymentMint: paymentMints[0],
+        accessVault: null,
+        productMintVault: getAssociatedTokenAddressSync(productMint, productPubkey, true),
+        masterEdition: masterEdition,
+        metadata: metadata,
+        merkleTree: merkleTree.publicKey,
+        treeAuthority: treeAuthority,
+    };
+
+    await program.methods
+      .initProductTree(initProductParams)
+      .accounts(initProductAccounts)
+      .signers([seller])
+      .preInstructions([
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 350000 }),
+      ])
+      .rpc(confirmOptions)
+      .catch(console.error);
+
+    const productAccount = await program.account.product.fetch(productPubkey);
+    assert.isDefined(productAccount);
+    assert.equal(productAccount.authority.toString(), seller.publicKey.toString());
+    assert.equal(productAccount.id.toString(), [...id].toString());
+    assert.equal(productAccount.marketplace.toString(), marketplacePubkey.toString());
+    assert.equal(productAccount.productMint.toString(), productMint.toString());
+    assert.equal(productAccount.sellerConfig.paymentMint.toString(), paymentMints[0].toString());
+    assert.equal(Number(productAccount.sellerConfig.productPrice), Number(productPrice));
+  });
+
+  it("Should register a buy and mint a cNFT", async () => {
+    [bubblegumSigner] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("collection_cpi", "utf-8")], BUBBLEGUM_PROGRAM
+    );
+    const registerNoRewardBuyAccounts = {
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      rent: SYSVAR_RENT_PUBKEY,
+      logWrapper: SPL_NOOP_PROGRAM_ID,
+      bubblegumProgram: BUBBLEGUM_PROGRAM,
+      compressionProgram: SPL_ACCOUNT_COMPRESSION_ADDRESS,
+      tokenMetadataProgram: METADATA_PROGRAM,
+      signer: buyer.publicKey,
+      seller: null,
+      marketplaceAuth: null,
+      marketplace: marketplacePubkey,
+      product: productPubkey,
+      paymentMint: paymentMints[0],
+      productMint: productMint,
+      buyerTransferVault: buyerVaults[0][0],
+      sellerTransferVault: sellerVaults[0][0],
+      marketplaceTransferVault: marketplaceVaults[0][0],
+      bountyVault: null,
+      sellerReward: null,
+      sellerRewardVault: null,
+      buyerReward: null,
+      buyerRewardVault: null,
+      metadata: metadata,
+      masterEdition: masterEdition,
+      treeAuthority: treeAuthority,
+      bubblegumSigner: bubblegumSigner,
+      merkleTree: merkleTree.publicKey,
+    };
+    const registerBuyCnftsParams = {
+      amount: 1,
+      name: "DATASET",
+      symbol: "BRICK",
+      uri: "TEST"
+    };
+
+    await program.methods
+      .registerBuyCnft(registerBuyCnftsParams)
+      .accounts(registerNoRewardBuyAccounts)
+      .signers([buyer])
+      .rpc(confirmOptions)
+      .catch(console.error);
+  });
+
   it("Marketplace auth airdrops access token", async () => {
     const accounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: marketplaceAuth.publicKey,
@@ -1944,10 +2049,7 @@ describe("brick", () => {
       feeReduction: feeReduction,
       sellerReward: sellerRewardMarketplace,
       buyerReward: buyerRewardMarketplace,
-      useCnfts: useCnfts,
-      deliverToken: deliverToken,
       transferable: transferable,
-      chainCounter: chainCounter,
       permissionless: permissionless,
       rewardsEnabled: rewardsEnabled,
       accessMintBump: accessMintBump,
@@ -1994,7 +2096,7 @@ describe("brick", () => {
 
     const acceptRequestAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: marketplaceAuth.publicKey,
@@ -2012,14 +2114,11 @@ describe("brick", () => {
       .rpc()
       .catch(console.error);
 
-    [firstId, secondId] = getSplitId(uuid());
-    const balance = 1000;
-    seller = await createFundedWallet(provider, balance);
+    id = parse(uuid());
     [productPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("product", "utf-8"), 
-        firstId, 
-        secondId,
+        id, 
         marketplacePubkey.toBuffer()
       ],
       program.programId
@@ -2033,8 +2132,7 @@ describe("brick", () => {
     );
     productPrice = new BN(100);
     const initProductParams = {
-      firstId: [...firstId],
-      secondId: [...secondId],
+      id: [...id],
       productPrice: productPrice,
       productMintBump: mintBump,
     };
@@ -2050,7 +2148,7 @@ describe("brick", () => {
     );
     const initProductAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: seller.publicKey,
       marketplace: marketplacePubkey,
@@ -2060,19 +2158,20 @@ describe("brick", () => {
       accessMint: accessMint,
       accessVault: accessVault.address,
     };
+    await delay(1000)
+
     await program.methods
       .initProduct(initProductParams)
       .accounts(initProductAccounts)
       .signers([seller])
-      .rpc()
+      .rpc(confirmOptions)
       .catch(console.error);
 
-    [firstId, secondId] = getSplitId(uuid());
+    id = parse(uuid());
     [productPubkey] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("product", "utf-8"), 
-        firstId, 
-        secondId,
+        id,
         marketplacePubkey.toBuffer()
       ],
       program.programId
@@ -2087,7 +2186,7 @@ describe("brick", () => {
     productPrice = new BN(100);
     const buyerVault = await getOrCreateAssociatedTokenAccount(
       provider.connection,
-      buyer as anchor.web3.Signer,
+      buyer,
       accessMint,
       buyer.publicKey,
       false,
@@ -2096,14 +2195,13 @@ describe("brick", () => {
       TOKEN_2022_PROGRAM_ID,
     );
     const initErrorProductParams = {
-      firstId: [...firstId],
-      secondId: [...secondId],
+      id: [...id],
       productPrice: productPrice,
       productMintBump: mintBump,
     };
     const initErrorProductAccounts = {
       systemProgram: SystemProgram.programId,
-      tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       rent: SYSVAR_RENT_PUBKEY,
       signer: buyer.publicKey,
       marketplace: marketplacePubkey,
@@ -2146,7 +2244,3 @@ describe("brick", () => {
     }
   });
 })
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}

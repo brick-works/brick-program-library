@@ -10,8 +10,8 @@ use {
     },    
     anchor_spl::{
         token_interface::{MintTo, Mint, TokenInterface, TokenAccount},
-        token_2022::{mint_to, ID as TokenProgram2022},
-        token::{transfer, Transfer, ID as TokenProgramV0},
+        token_2022::mint_to,
+        token::{transfer, Transfer},
     },
     spl_token::native_mint::ID as NativeMint
 };
@@ -19,10 +19,7 @@ use {
 #[derive(Accounts)]
 pub struct RegisterBuyToken<'info> {
     pub system_program: Program<'info, System>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram, executable)]
-    pub token_program_v0: Interface<'info, TokenInterface>,
-    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram, executable)]
-    pub token_program_2022: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -50,8 +47,7 @@ pub struct RegisterBuyToken<'info> {
         mut,
         seeds = [
             b"product".as_ref(),
-            product.first_id.as_ref(),
-            product.second_id.as_ref(),
+            product.id.as_ref(),
             marketplace.key().as_ref(),
         ],
         bump = product.bumps.bump,
@@ -117,7 +113,7 @@ pub struct RegisterBuyToken<'info> {
             product.authority.as_ref(),
             marketplace.key().as_ref(),
         ],
-        bump = seller_reward.bumps.bump
+        bump = seller_reward.bump
     )]
     pub seller_reward: Option<Account<'info, Reward>>,
     #[account(
@@ -134,7 +130,7 @@ pub struct RegisterBuyToken<'info> {
             signer.key().as_ref(),
             marketplace.key().as_ref(),
         ],
-        bump = buyer_reward.bumps.bump,
+        bump = buyer_reward.bump,
     )]
     pub buyer_reward: Option<Account<'info, Reward>>,
     #[account(
@@ -149,10 +145,6 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
     let total_amount = ctx.accounts.product.seller_config.product_price
         .checked_mul(amount.into()).ok_or(ErrorCode::NumericalOverflow)?;
     let marketplace = &ctx.accounts.marketplace;
-
-    if !marketplace.token_config.deliver_token {
-        return Err(ErrorCode::IncorrectInstruction.into());
-    }
 
     // payment and fees
     if cmp_pubkeys(&ctx.accounts.payment_mint.key(), &NativeMint) {
@@ -179,7 +171,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
             .ok_or(ErrorCode::OptionalAccountNotProvided)?;
 
         handle_spl(
-            ctx.accounts.token_program_v0.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
             ctx.accounts.signer.to_account_info(),
             marketplace_transfer_vault.to_account_info(),
             seller_transfer_vault.to_account_info(),
@@ -231,7 +223,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
 
         transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program_v0.to_account_info(), 
+                ctx.accounts.token_program.to_account_info(), 
                 Transfer {
                     from: bounty_vault.to_account_info(),
                     to: seller_reward_vault.to_account_info(),
@@ -244,7 +236,7 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
 
         transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program_v0.to_account_info(), 
+                ctx.accounts.token_program.to_account_info(), 
                 Transfer {
                     from: bounty_vault.to_account_info(),
                     to: buyer_reward_vault.to_account_info(),
@@ -258,15 +250,14 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
 
     let seeds = &[
         b"product".as_ref(),
-        ctx.accounts.product.first_id.as_ref(),
-        ctx.accounts.product.second_id.as_ref(),
+        ctx.accounts.product.id.as_ref(),
         ctx.accounts.product.marketplace.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 
     mint_to(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program_2022.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
             MintTo {
                 mint: ctx.accounts.product_mint.to_account_info(),
                 to: ctx.accounts.buyer_token_vault.to_account_info(),

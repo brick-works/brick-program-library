@@ -5,15 +5,13 @@ use {
     anchor_spl::{
         associated_token::AssociatedToken,
         token_interface::{Mint, TokenInterface, TokenAccount},
-        token::ID as TokenProgramV0,
     }
 };
 
 #[derive(Accounts)]
 pub struct InitBounty<'info> {
     pub system_program: Program<'info, System>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_v0: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
@@ -41,18 +39,10 @@ pub struct InitBounty<'info> {
         bump,
         token::mint = reward_mint,
         token::authority = marketplace,
-        token::token_program = token_program_v0,
     )]
     pub bounty_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }
 
-pub fn handler<'info>(ctx: Context<InitBounty>,) -> Result<()> {
-    if ctx.accounts.marketplace.rewards_config.bounty_vaults.len() >= VAULT_COUNT {
-        return Err(ErrorCode::VaultsVectorFull.into());
-    }
-
-    ctx.accounts.marketplace.rewards_config.bounty_vaults.push(ctx.accounts.bounty_vault.key());
-    ctx.accounts.marketplace.bumps.vault_bumps.push(*ctx.bumps.get("bounty_vault").unwrap());
-    
+pub fn handler<'info>(_ctx: Context<InitBounty>,) -> Result<()> {
     Ok(())
 }

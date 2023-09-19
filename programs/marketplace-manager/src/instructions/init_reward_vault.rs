@@ -5,15 +5,13 @@ use {
     anchor_spl::{
         associated_token::AssociatedToken,
         token_interface::{Mint, TokenInterface, TokenAccount},
-        token::ID as TokenProgramV0,
     }
 };
 
 #[derive(Accounts)]
 pub struct InitRewardVault<'info> {
     pub system_program: Program<'info, System>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_v0: Interface<'info, TokenInterface>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
@@ -34,7 +32,7 @@ pub struct InitRewardVault<'info> {
             signer.key().as_ref(),
             marketplace.key().as_ref(),
         ],
-        bump = reward.bumps.bump,
+        bump = reward.bump,
     )]
     pub reward: Account<'info, Reward>,
     #[account(
@@ -54,19 +52,12 @@ pub struct InitRewardVault<'info> {
         bump,
         token::mint = reward_mint,
         token::authority = reward,
-        token::token_program = token_program_v0,
+        token::token_program = token_program,
     )]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 }
 
-pub fn handler<'info>(ctx: Context<InitRewardVault>,) -> Result<()> {
-    if ctx.accounts.reward.reward_vaults.len() >= VAULT_COUNT {
-        return Err(ErrorCode::VaultsVectorFull.into());
-    }
-
-    ctx.accounts.reward.reward_vaults.push(ctx.accounts.reward_vault.key());
-    ctx.accounts.reward.bumps.vault_bumps.push(*ctx.bumps.get("reward_vault").unwrap());
-    
+pub fn handler<'info>(_ctx: Context<InitRewardVault>,) -> Result<()> {
     Ok(())
 }
 

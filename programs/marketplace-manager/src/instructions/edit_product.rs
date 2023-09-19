@@ -13,8 +13,7 @@ pub struct EditProduct<'info> {
         mut,
         seeds = [
             b"product".as_ref(),
-            product.first_id.as_ref(),
-            product.second_id.as_ref(),
+            product.id.as_ref(),
             product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
