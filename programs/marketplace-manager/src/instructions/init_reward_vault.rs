@@ -10,10 +10,6 @@ use {
 
 #[derive(Accounts)]
 pub struct InitRewardVault<'info> {
-    pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -55,6 +51,10 @@ pub struct InitRewardVault<'info> {
         token::token_program = token_program,
     )]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 pub fn handler<'info>(_ctx: Context<InitRewardVault>,) -> Result<()> {

@@ -31,15 +31,6 @@ pub struct RegisterBuyCnftParams {
 
 #[derive(Accounts)]
 pub struct RegisterBuyCnft<'info> {
-    pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
-    pub rent: Sysvar<'info, Rent>,
-    pub log_wrapper: Program<'info, Noop>,
-    pub bubblegum_program: Program<'info, Bubblegum>,
-    pub compression_program: Program<'info, SplAccountCompression>,
-    /// CHECK: Checked with constraints
-    #[account(address = mpl_token_metadata::ID)]
-    pub token_metadata_program: AccountInfo<'info>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -68,7 +59,6 @@ pub struct RegisterBuyCnft<'info> {
         seeds = [
             b"product".as_ref(),
             product.id.as_ref(),
-            product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
     )]
@@ -185,13 +175,21 @@ pub struct RegisterBuyCnft<'info> {
     /// CHECK: Checked by cpi
     #[account(mut)]
     pub merkle_tree: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub rent: Sysvar<'info, Rent>,
+    pub log_wrapper: Program<'info, Noop>,
+    pub bubblegum_program: Program<'info, Bubblegum>,
+    pub compression_program: Program<'info, SplAccountCompression>,
+    /// CHECK: Checked with constraints
+    #[account(address = mpl_token_metadata::ID)]
+    pub token_metadata_program: AccountInfo<'info>,
 }
 
 pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftParams) -> Result<()> {
     let total_amount = ctx.accounts.product.seller_config.product_price
         .checked_mul(params.amount.into()).ok_or(ErrorCode::NumericalOverflow)?;
     let marketplace = &ctx.accounts.marketplace;
-    let marketplace_key = ctx.accounts.marketplace.key();
 
     // payment and fees
     if cmp_pubkeys(&ctx.accounts.payment_mint.key(), &NativeMint) {
@@ -298,7 +296,6 @@ pub fn handler<'info>(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftPara
     let product_seeds = &[
         b"product".as_ref(),
         ctx.accounts.product.id.as_ref(),
-        marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 

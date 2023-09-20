@@ -101,8 +101,6 @@ pub struct Product {
     /// The seller's public key, who owns the product.
     pub authority: Pubkey,
     pub id: [u8; 16],
-    // Where the product come from
-    pub marketplace: Pubkey,
     /// Two options:
     /// - Collection address
     /// - Mint (fungible) that represents the product. Owning this token implies having paid for the product.
@@ -133,7 +131,6 @@ pub struct ProductBumps {
 pub const PRODUCT_SIZE: usize = 8 // discriminator
     + 32 // authority
     + 16 // id
-    + 32 // marketplace
     + 32 // product_mint
     + 32 // merkle_tree
     // SellerConfig

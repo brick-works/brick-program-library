@@ -12,11 +12,6 @@ use {
 
 #[derive(Accounts)]
 pub struct AcceptAccess<'info> {
-    pub system_program: Program<'info, System>,
-    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(mut)]
@@ -63,6 +58,11 @@ pub struct AcceptAccess<'info> {
         associated_token::token_program = token_program
     )]
     pub access_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 pub fn handler<'info>(ctx: Context<AcceptAccess>) -> Result<()> {

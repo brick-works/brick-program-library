@@ -25,10 +25,6 @@ pub struct InitProductParams {
 #[derive(Accounts)]
 #[instruction(params: InitProductParams)]
 pub struct InitProduct<'info> {
-    pub system_program: Program<'info, System>,
-    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program: Interface<'info, TokenInterface>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -47,7 +43,6 @@ pub struct InitProduct<'info> {
         seeds = [
             b"product".as_ref(),
             params.id.as_ref(),
-            marketplace.key().as_ref(),
         ],
         bump,
     )]
@@ -82,6 +77,10 @@ pub struct InitProduct<'info> {
             @ ErrorCode::IncorrectAuthority
     )]    
     pub access_vault: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> Result<()> {
@@ -94,12 +93,10 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
         }
     }
 
-    let marketplace_key = ctx.accounts.marketplace.key();
     let product_key = ctx.accounts.product.key();
     
     (*ctx.accounts.product).authority = ctx.accounts.signer.key();
     (*ctx.accounts.product).id = params.id;
-    (*ctx.accounts.product).marketplace = marketplace_key;
     (*ctx.accounts.product).product_mint = ctx.accounts.product_mint.key();
     (*ctx.accounts.product).seller_config = SellerConfig {
         payment_mint: ctx.accounts.payment_mint.key(),
@@ -123,7 +120,6 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
     let product_seeds = &[
         b"product".as_ref(),
         ctx.accounts.product.id.as_ref(),
-        marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 

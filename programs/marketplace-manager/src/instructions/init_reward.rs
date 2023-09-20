@@ -6,9 +6,6 @@ use {
 
 #[derive(Accounts)]
 pub struct InitReward<'info> {
-    pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -47,6 +44,9 @@ pub struct InitReward<'info> {
         token::authority = reward,
     )]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler<'info>(ctx: Context<InitReward>) -> Result<()> {

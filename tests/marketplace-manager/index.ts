@@ -310,7 +310,6 @@ describe("marketplace_manager", () => {
       [
         Buffer.from("product", "utf-8"), 
         id,
-        marketplacePubkey.toBuffer()
       ],
       program.programId
     );
@@ -351,7 +350,6 @@ describe("marketplace_manager", () => {
     assert.isDefined(productAccount);
     assert.equal(productAccount.authority.toString(), seller.publicKey.toString());
     assert.equal(productAccount.id.toString(), id.toString());
-    assert.equal(productAccount.marketplace.toString(), marketplacePubkey.toString());
     assert.equal(productAccount.productMint.toString(), productMint.toString());
     assert.equal(productAccount.sellerConfig.paymentMint.toString(), paymentMints[0].toString());
     assert.equal(Number(productAccount.sellerConfig.productPrice), Number(productPrice));
@@ -365,6 +363,7 @@ describe("marketplace_manager", () => {
       signer: seller.publicKey,
       product: productPubkey,
       paymentMint: newPaymentMintPubkey,
+      marketplace: marketplacePubkey
     };
     await program.methods
       .editProduct(newPrice)
@@ -385,7 +384,8 @@ describe("marketplace_manager", () => {
         .accounts({
           signer: exploiter.publicKey,
           product: productPubkey,
-          paymentMint: newPaymentMintPubkey
+          paymentMint: newPaymentMintPubkey,
+          marketplace: marketplacePubkey
         })
         .signers([exploiter])
         .rpc();
@@ -401,6 +401,7 @@ describe("marketplace_manager", () => {
         signer: seller.publicKey,
         product: productPubkey,
         paymentMint: paymentMints[0],
+        marketplace: marketplacePubkey
       })
       .signers([seller])
       .rpc()
@@ -463,7 +464,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: paymentMints[0],
       buyerTransferVault: buyerVaults[0][0],
       sellerTransferVault: sellerVaults[0][0],
@@ -562,7 +562,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: paymentMints[0],
       buyerTransferVault: buyerVaults[0][0],
       sellerTransferVault: sellerVaults[0][0],
@@ -630,6 +629,7 @@ describe("marketplace_manager", () => {
       signer: seller.publicKey,
       product: productPubkey,
       paymentMint: newPaymentMintPubkey,
+      marketplace: marketplacePubkey
     };
     await program.methods
       .editProduct(newPrice)
@@ -660,7 +660,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: marketplaceAuth.publicKey,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: newPaymentMintPubkey,
       buyerTokenVault: null,
       buyerTransferVault: null,
@@ -685,6 +684,7 @@ describe("marketplace_manager", () => {
       signer: seller.publicKey,
       product: productPubkey,
       paymentMint: paymentMints[0],
+      marketplace: marketplacePubkey
     };
     await program.methods
       .editProduct(productPrice)
@@ -748,7 +748,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: paymentMints[0],
       buyerTransferVault: buyerVaults[0][0],
       sellerTransferVault: sellerVaults[0][0],
@@ -949,7 +948,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: paymentMints[0],
       buyerTransferVault: buyerVaults[0][0],
       sellerTransferVault: sellerVaults[0][0],
@@ -1156,6 +1154,7 @@ describe("marketplace_manager", () => {
         signer: seller.publicKey,
         product: productPubkey,
         paymentMint: NATIVE_MINT,
+        marketplace: marketplacePubkey
       })
       .signers([seller])
       .rpc()
@@ -1178,7 +1177,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: marketplaceAuth.publicKey,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: NATIVE_MINT,
       buyerTransferVault: null,
       sellerTransferVault: null,
@@ -1272,6 +1270,7 @@ describe("marketplace_manager", () => {
         signer: seller.publicKey,
         product: productPubkey,
         paymentMint:rewardMint,
+        marketplace: marketplacePubkey
       })
       .signers([seller])
       .rpc()
@@ -1391,7 +1390,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: rewardMint,
       buyerTransferVault: buyerVaults[1][0],
       sellerTransferVault: sellerVaults[1][0],
@@ -1582,7 +1580,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: rewardMint,
       buyerTransferVault: buyerVaults[1][0],
       sellerTransferVault: sellerVaults[1][0],
@@ -1615,6 +1612,7 @@ describe("marketplace_manager", () => {
         signer: seller.publicKey,
         product: productPubkey,
         paymentMint: newRewardMint,
+        marketplace: marketplacePubkey
       })
       .signers([seller])
       .rpc()
@@ -1629,7 +1627,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: null,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: newRewardMint,
       buyerTransferVault: buyerVaults[2][0],
       sellerTransferVault: sellerVaults[2][0],
@@ -1775,6 +1772,7 @@ describe("marketplace_manager", () => {
       signer: seller.publicKey,
       product: productPubkey,
       paymentMint: newPaymentMintPubkey,
+      marketplace: marketplacePubkey
     };
     await program.methods
       .editProduct(newPrice)
@@ -1833,7 +1831,6 @@ describe("marketplace_manager", () => {
       marketplaceAuth: marketplaceAuth.publicKey,
       marketplace: marketplacePubkey,
       product: productPubkey,
-      payment: paymentPubkey,
       paymentMint: newPaymentMintPubkey,
       buyerTokenVault: null,
       buyerTransferVault: null,
@@ -1870,7 +1867,6 @@ describe("marketplace_manager", () => {
       [
         Buffer.from("product", "utf-8"), 
         id,
-        marketplacePubkey.toBuffer()
       ],
       program.programId
     );
@@ -1966,7 +1962,6 @@ describe("marketplace_manager", () => {
     assert.isDefined(productAccount);
     assert.equal(productAccount.authority.toString(), seller.publicKey.toString());
     assert.equal(productAccount.id.toString(), [...id].toString());
-    assert.equal(productAccount.marketplace.toString(), marketplacePubkey.toString());
     assert.equal(productAccount.productMint.toString(), productMint.toString());
     assert.equal(productAccount.sellerConfig.paymentMint.toString(), paymentMints[0].toString());
     assert.equal(Number(productAccount.sellerConfig.productPrice), Number(productPrice));
@@ -2119,7 +2114,6 @@ describe("marketplace_manager", () => {
       [
         Buffer.from("product", "utf-8"), 
         id, 
-        marketplacePubkey.toBuffer()
       ],
       program.programId
     );
@@ -2172,7 +2166,6 @@ describe("marketplace_manager", () => {
       [
         Buffer.from("product", "utf-8"), 
         id,
-        marketplacePubkey.toBuffer()
       ],
       program.programId
     );

@@ -5,8 +5,6 @@ use {
 
 #[derive(Accounts)]
 pub struct RequestAccess<'info> {
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -30,6 +28,8 @@ pub struct RequestAccess<'info> {
         bump,
     )]
     pub request: Account<'info, Access>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler<'info>(ctx: Context<RequestAccess>) -> Result<()> {

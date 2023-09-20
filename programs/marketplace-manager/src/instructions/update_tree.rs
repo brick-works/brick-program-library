@@ -33,7 +33,6 @@ pub struct UpdateProductTree<'info> {
         seeds = [
             b"product".as_ref(),
             product.id.as_ref(),
-            product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
         constraint = product.authority == signer.key()
@@ -60,11 +59,9 @@ pub struct UpdateProductTree<'info> {
 }
 
 pub fn handler(ctx: Context<UpdateProductTree>, params: UpdateProductTreeParams) -> Result<()> {
-    let marketplace_key = ctx.accounts.marketplace.key();
     let product_seeds: &[&[u8]] = &[
         b"product".as_ref(),
         ctx.accounts.product.id.as_ref(),
-        marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 

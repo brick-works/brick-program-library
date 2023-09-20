@@ -3,16 +3,11 @@ use {
     crate::error::ErrorCode,
     anchor_lang::prelude::*,
     anchor_spl::token::{transfer, Transfer},
-    anchor_spl::{
-        token_interface::{Mint, TokenInterface, TokenAccount},
-        token::ID,
-    }
+    anchor_spl::token_interface::{Mint, TokenInterface, TokenAccount}
 };
 
 #[derive(Accounts)]
-pub struct WithdrawReward<'info> {
-    #[account(address = ID @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program: Interface<'info, TokenInterface>,    
+pub struct WithdrawReward<'info> { 
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -50,6 +45,7 @@ pub struct WithdrawReward<'info> {
             @ ErrorCode::IncorrectMint,
     )]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub token_program: Interface<'info, TokenInterface>,   
 }
 
 pub fn handler<'info>(ctx: Context<WithdrawReward>) -> Result<()> {

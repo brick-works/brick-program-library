@@ -17,9 +17,6 @@ use {
 
 #[derive(Accounts)]
 pub struct RegisterBuy<'info> {
-    pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -48,13 +45,10 @@ pub struct RegisterBuy<'info> {
         seeds = [
             b"product".as_ref(),
             product.id.as_ref(),
-            product.marketplace.as_ref(),
         ],
         bump = product.bumps.bump,
     )]
     pub product: Box<Account<'info, Product>>,
-    /// CHECK: this account is used as index (pda), not initialized
-    pub payment: UncheckedAccount<'info>,
     #[account(
         constraint = payment_mint.key() == product.seller_config.payment_mint
             @ ErrorCode::IncorrectMint,
@@ -113,6 +107,9 @@ pub struct RegisterBuy<'info> {
     pub buyer_reward: Option<Account<'info, Reward>>,
     #[account(mut)]
     pub buyer_reward_vault: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn handler<'info>(ctx: Context<RegisterBuy>, amount: u32) -> Result<()> {

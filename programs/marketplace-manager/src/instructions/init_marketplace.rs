@@ -32,12 +32,6 @@ pub struct InitMarketplaceParams {
 #[derive(Accounts)]
 #[instruction(params: InitMarketplaceParams)]
 pub struct InitMarketplace<'info> {
-    pub system_program: Program<'info, System>,
-    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program_2022: Interface<'info, TokenInterface>,
-    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram)]
-    pub token_program: Interface<'info, TokenInterface>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -77,6 +71,12 @@ pub struct InitMarketplace<'info> {
         token::token_program = token_program,
     )]
     pub bounty_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
+    pub token_program_2022: Interface<'info, TokenInterface>,
+    #[account(address = TokenProgramV0 @ ErrorCode::IncorrectTokenProgram)]
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler<'info>(ctx: Context<InitMarketplace>, params: InitMarketplaceParams) -> Result<()> {

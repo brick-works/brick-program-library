@@ -18,8 +18,6 @@ use {
 
 #[derive(Accounts)]
 pub struct RegisterBuyToken<'info> {
-    pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -48,7 +46,6 @@ pub struct RegisterBuyToken<'info> {
         seeds = [
             b"product".as_ref(),
             product.id.as_ref(),
-            marketplace.key().as_ref(),
         ],
         bump = product.bumps.bump,
     )]
@@ -139,6 +136,8 @@ pub struct RegisterBuyToken<'info> {
             @ ErrorCode::IncorrectATA,
     )]
     pub buyer_reward_vault: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()> {
@@ -251,7 +250,6 @@ pub fn handler<'info>(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()>
     let seeds = &[
         b"product".as_ref(),
         ctx.accounts.product.id.as_ref(),
-        ctx.accounts.product.marketplace.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 

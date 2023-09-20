@@ -25,16 +25,6 @@ pub struct InitProductTreeParams {
 #[derive(Accounts)]
 #[instruction(params: InitProductTreeParams)]
 pub struct InitProductTree<'info> {
-    /// CHECK: Checked with constraints
-    #[account(address = mpl_token_metadata::ID)]
-    pub token_metadata_program: AccountInfo<'info>,
-    pub log_wrapper: Program<'info, Noop>,
-    pub system_program: Program<'info, System>,
-    pub bubblegum_program: Program<'info, Bubblegum>,
-    pub compression_program: Program<'info, SplAccountCompression>,
-    pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub rent: Sysvar<'info, Rent>,
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
@@ -53,7 +43,6 @@ pub struct InitProductTree<'info> {
         seeds = [
             b"product".as_ref(),
             params.id.as_ref(),
-            marketplace.key().as_ref(),
         ],
         bump,
     )]
@@ -138,6 +127,16 @@ pub struct InitProductTree<'info> {
         seeds::program = bubblegum_program.key()
     )]
     pub tree_authority: AccountInfo<'info>,
+    pub rent: Sysvar<'info, Rent>,
+    /// CHECK: Checked with constraints
+    #[account(address = mpl_token_metadata::ID)]
+    pub token_metadata_program: AccountInfo<'info>,
+    pub log_wrapper: Program<'info, Noop>,
+    pub system_program: Program<'info, System>,
+    pub bubblegum_program: Program<'info, Bubblegum>,
+    pub compression_program: Program<'info, SplAccountCompression>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreeParams) -> Result<()> {
@@ -150,12 +149,10 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
         }
     }
 
-    let marketplace_key = ctx.accounts.marketplace.key();
     let product_key = ctx.accounts.product.key();
 
     (*ctx.accounts.product).authority = ctx.accounts.signer.key();
     (*ctx.accounts.product).id = params.id;
-    (*ctx.accounts.product).marketplace = marketplace_key;
     (*ctx.accounts.product).merkle_tree = ctx.accounts.merkle_tree.key();
     (*ctx.accounts.product).product_mint = ctx.accounts.product_mint.key();
     (*ctx.accounts.product).seller_config = SellerConfig {
@@ -180,7 +177,6 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
     let product_seeds = &[
         b"product".as_ref(),
         ctx.accounts.product.id.as_ref(),
-        marketplace_key.as_ref(),
         &[ctx.accounts.product.bumps.bump],
     ];
 
