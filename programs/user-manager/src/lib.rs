@@ -7,7 +7,7 @@ use {
     }
 };
 
-declare_id!("8qZHpkF9Ai4BFe7R8g4zXduo6rUmWeJQfEkUaEno57Kf");
+declare_id!("6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa");
 
 #[program]
 pub mod user_manager {

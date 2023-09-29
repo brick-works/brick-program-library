@@ -1,8 +1,5 @@
 use {
-    anchor_lang::{
-        prelude::*,
-        solana_program::{ program_memory::sol_memcmp, pubkey::PUBKEY_BYTES },
-    },
+    anchor_lang::prelude::*,
     anchor_spl::{
         token_interface::{ Mint, TokenInterface, TokenAccount },
         associated_token::AssociatedToken,
@@ -11,7 +8,7 @@ use {
     }
 };
 
-declare_id!("6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa");
+declare_id!("ESb8CKVxVNpDS3c1fsrWwmMkfKga7Z9pdAdbKU5Lv3VU");
 
 #[program]
 pub mod product_manager {
@@ -30,7 +27,9 @@ pub mod product_manager {
     pub fn pay(ctx: Context<Pay>, expire_time: i64) -> Result<()> {
         (*ctx.accounts.escrow).buyer = ctx.accounts.signer.key();
         (*ctx.accounts.escrow).seller = ctx.accounts.seller.key();
-        (*ctx.accounts.escrow).expire_time = expire_time;
+        (*ctx.accounts.escrow).product = ctx.accounts.product.key();
+        let now = Clock::get().unwrap().unix_timestamp;
+        (*ctx.accounts.escrow).expire_time = now + expire_time;
         (*ctx.accounts.escrow).vault_bump = *ctx.bumps.get("escrow_vault").unwrap();
         (*ctx.accounts.escrow).bump = *ctx.bumps.get("escrow").unwrap();
 
@@ -56,12 +55,12 @@ pub mod product_manager {
         }
 
         let product_key = ctx.accounts.product.key();
-        let signer_key = ctx.accounts.product.key();
+        let buyer_key = ctx.accounts.buyer.key();
     
         let escrow_seeds = [
             b"escrow".as_ref(),
             product_key.as_ref(),
-            signer_key.as_ref(),
+            buyer_key.as_ref(),
             &[ctx.accounts.escrow.bump],
         ];
     
@@ -75,7 +74,7 @@ pub mod product_manager {
                 },
                 &[&escrow_seeds[..]]
             ),
-            ctx.accounts.transfer_vault.amount
+            ctx.accounts.escrow_vault.amount
         )?;
 
         close_account( 
@@ -99,12 +98,12 @@ pub mod product_manager {
         }
 
         let product_key = ctx.accounts.product.key();
-        let signer_key = ctx.accounts.product.key();
+        let buyer_key = ctx.accounts.buyer.key();
     
         let escrow_seeds = [
             b"escrow".as_ref(),
             product_key.as_ref(),
-            signer_key.as_ref(),
+            buyer_key.as_ref(),
             &[ctx.accounts.escrow.bump],
         ];
     
@@ -118,7 +117,7 @@ pub mod product_manager {
                 },
                 &[&escrow_seeds[..]]
             ),
-            ctx.accounts.transfer_vault.amount
+            ctx.accounts.escrow_vault.amount
         )?;
 
         close_account( 
@@ -142,7 +141,7 @@ pub mod product_manager {
         }
 
         let product_key = ctx.accounts.product.key();
-        let signer_key = ctx.accounts.product.key();
+        let signer_key = ctx.accounts.signer.key();
     
         let escrow_seeds = [
             b"escrow".as_ref(),
@@ -161,7 +160,7 @@ pub mod product_manager {
                 },
                 &[&escrow_seeds[..]]
             ),
-            ctx.accounts.transfer_vault.amount
+            ctx.accounts.escrow_vault.amount
         )?;
 
         close_account( 
@@ -264,7 +263,23 @@ pub struct Pay<'info> {
 pub struct Accept<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
+    #[account(mut)]
     pub buyer: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [
+            b"escrow".as_ref(),
+            product.key().as_ref(),
+            buyer.key().as_ref()
+        ],
+        bump = escrow.bump,
+        constraint = escrow.seller == signer.key()
+            @ ErrorCode::IncorrectAuthority,
+        constraint = escrow.product == product.key()
+            @ ErrorCode::IncorrectProduct,
+        close = buyer,
+    )]
+    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -279,20 +294,6 @@ pub struct Accept<'info> {
             @ ErrorCode::IncorrectMint
     )]
     pub product: Account<'info, Product>,
-    #[account(
-        mut,
-        seeds = [
-            b"escrow".as_ref(),
-            product.key().as_ref(),
-            buyer.key().as_ref()
-        ],
-        bump = escrow.bump,
-        constraint = escrow.seller == signer.key()
-            && escrow.buyer == buyer.key() 
-            @ ErrorCode::IncorrectParticipant,
-        close = buyer,
-    )]
-    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -324,7 +325,23 @@ pub struct Accept<'info> {
 pub struct Deny<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
+    #[account(mut)]
     pub buyer: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [
+            b"escrow".as_ref(),
+            product.key().as_ref(),
+            buyer.key().as_ref()
+        ],
+        bump = escrow.bump,
+        constraint = escrow.seller == signer.key()
+            @ ErrorCode::IncorrectAuthority,
+        constraint = escrow.product == product.key()
+            @ ErrorCode::IncorrectProduct,
+        close = buyer,
+    )]
+    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -339,20 +356,6 @@ pub struct Deny<'info> {
             @ ErrorCode::IncorrectMint
     )]
     pub product: Account<'info, Product>,
-    #[account(
-        mut,
-        seeds = [
-            b"escrow".as_ref(),
-            product.key().as_ref(),
-            buyer.key().as_ref()
-        ],
-        bump = escrow.bump,
-        constraint = escrow.seller == signer.key()
-            && escrow.buyer == buyer.key() 
-            @ ErrorCode::IncorrectParticipant,
-        close = buyer,
-    )]
-    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -384,7 +387,22 @@ pub struct Deny<'info> {
 pub struct RecoverFunds<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    pub seller: SystemAccount<'info>,
+    pub seller: SystemAccount<'info>,    
+    #[account(
+        mut,
+        seeds = [
+            b"escrow".as_ref(),
+            product.key().as_ref(),
+            signer.key().as_ref()
+        ],
+        bump = escrow.bump,
+        constraint = escrow.buyer == signer.key() 
+            @ ErrorCode::IncorrectAuthority,
+        constraint = escrow.product == product.key()
+            @ ErrorCode::IncorrectProduct,
+        close = signer,
+    )]
+    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -399,20 +417,6 @@ pub struct RecoverFunds<'info> {
             @ ErrorCode::IncorrectMint
     )]
     pub product: Account<'info, Product>,
-    #[account(
-        mut,
-        seeds = [
-            b"escrow".as_ref(),
-            product.key().as_ref(),
-            signer.key().as_ref()
-        ],
-        bump = escrow.bump,
-        constraint = escrow.seller == seller.key()
-            && escrow.buyer == signer.key() 
-            @ ErrorCode::IncorrectParticipant,
-        close = signer,
-    )]
-    pub escrow: Account<'info, Escrow>,
     #[account(
         mut,
         seeds = [
@@ -458,12 +462,13 @@ pub struct Escrow {
     /// buyer can recover funds after expire time
     pub buyer: Pubkey,
     pub seller: Pubkey,
+    pub product: Pubkey,
     pub expire_time: i64,
     pub vault_bump: u8,
     pub bump: u8,
 }
 
-pub const ESCORW_SIZE: usize = 8 + 32 + 32 + 8 + 1 + 1;
+pub const ESCORW_SIZE: usize = 8 + 32 + 32 + 32 + 8 + 1 + 1;
 
 #[error_code]
 pub enum ErrorCode {
@@ -473,8 +478,8 @@ pub enum ErrorCode {
     IncorrectOwner,
     #[msg("Wrong mint on a token account")]
     IncorrectMint,
-    #[msg("Wrong participant of the escrow")]
-    IncorrectParticipant,
+    #[msg("Wrong product on a escrow")]
+    IncorrectProduct,
     #[msg("Your time to accept or deny propossal has expired")]
     TimeExpired,
     #[msg("Payment recovery is not allowed at this time")]
