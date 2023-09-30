@@ -21,13 +21,22 @@ pub mod product_manager {
         (*ctx.accounts.product).price = price;
         (*ctx.accounts.product).bump = *ctx.bumps.get("product").unwrap();
 
+        emit!(ProductEvent {
+            address: ctx.accounts.product.key().to_string(),
+            mint: ctx.accounts.payment_mint.key().to_string(),
+            seller: ctx.accounts.signer.key().to_string(),
+            price: ctx.accounts.product.price,
+            blocktime: Clock::get().unwrap().unix_timestamp
+        });
+
         Ok(())
     }
 
-    pub fn pay(ctx: Context<Pay>, expire_time: i64) -> Result<()> {
-        (*ctx.accounts.escrow).buyer = ctx.accounts.signer.key();
-        (*ctx.accounts.escrow).seller = ctx.accounts.seller.key();
+    pub fn escrow_pay(ctx: Context<EscrowPay>, product_amount: u64, expire_time: i64) -> Result<()> {
+        (*ctx.accounts.escrow).payer = ctx.accounts.signer.key();
+        (*ctx.accounts.escrow).receiver = ctx.accounts.seller.key();
         (*ctx.accounts.escrow).product = ctx.accounts.product.key();
+        (*ctx.accounts.escrow).product_amount = product_amount;
         let now = Clock::get().unwrap().unix_timestamp;
         (*ctx.accounts.escrow).expire_time = now + expire_time;
         (*ctx.accounts.escrow).vault_bump = *ctx.bumps.get("escrow_vault").unwrap();
@@ -42,8 +51,47 @@ pub mod product_manager {
                     authority: ctx.accounts.signer.to_account_info(),
                 },
             ),
-            ctx.accounts.product.price,
+            ctx.accounts.product.price * product_amount,
         )?;
+
+        emit!(EscrowEvent {
+            address: ctx.accounts.escrow.key().to_string(),
+            vault: ctx.accounts.escrow_vault.key().to_string(),
+            mint: ctx.accounts.payment_mint.key().to_string(),
+            payer: ctx.accounts.signer.key().to_string(),
+            receiver: ctx.accounts.seller.key().to_string(),
+            product: ctx.accounts.product.key().to_string(),
+            amount: ctx.accounts.product.price,
+            product_amount: ctx.accounts.escrow.product_amount,
+            expire_time: ctx.accounts.escrow.expire_time,
+            blocktime: Clock::get().unwrap().unix_timestamp
+        });
+
+        Ok(())
+    }
+
+    pub fn direct_pay(ctx: Context<DirectPay>, product_amount: u64) -> Result<()> {
+        transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(), 
+                Transfer {
+                    from: ctx.accounts.from.to_account_info(),
+                    to: ctx.accounts.to.to_account_info(),
+                    authority: ctx.accounts.signer.to_account_info(),
+                },
+            ),
+            ctx.accounts.product.price * product_amount,
+        )?;
+
+        emit!(DirectPayEvent {
+            mint: ctx.accounts.payment_mint.key().to_string(),
+            payer: ctx.accounts.signer.key().to_string(),
+            receiver: ctx.accounts.seller.key().to_string(),
+            product: ctx.accounts.product.key().to_string(),
+            amount: ctx.accounts.product.price,
+            product_amount: product_amount,
+            blocktime: Clock::get().unwrap().unix_timestamp
+        });
 
         Ok(())
     }
@@ -76,6 +124,18 @@ pub mod product_manager {
             ),
             ctx.accounts.escrow_vault.amount
         )?;
+
+        emit!(SellerResponseEvent {
+            response: SellerResponse::Accept,
+            escrow: ctx.accounts.escrow.key().to_string(),
+            mint: ctx.accounts.payment_mint.key().to_string(),
+            payer: ctx.accounts.buyer.key().to_string(),
+            receiver: ctx.accounts.signer.key().to_string(),
+            product: ctx.accounts.product.key().to_string(),
+            amount: ctx.accounts.escrow_vault.amount,
+            product_amount: ctx.accounts.escrow.product_amount,
+            blocktime: now
+        });
 
         close_account( 
             CpiContext::new_with_signer(
@@ -131,6 +191,18 @@ pub mod product_manager {
             &[&escrow_seeds[..]],
         ))?;
 
+        emit!(SellerResponseEvent {
+            response: SellerResponse::Deny,
+            escrow: ctx.accounts.escrow.key().to_string(),
+            mint: ctx.accounts.payment_mint.key().to_string(),
+            payer: ctx.accounts.buyer.key().to_string(),
+            receiver: ctx.accounts.buyer.key().to_string(),
+            product: ctx.accounts.product.key().to_string(),
+            amount: ctx.accounts.escrow_vault.amount,
+            product_amount: ctx.accounts.escrow.product_amount,
+            blocktime: now
+        });
+
         Ok(())
     }
 
@@ -174,6 +246,13 @@ pub mod product_manager {
             &[&escrow_seeds[..]],
         ))?;
 
+        emit!(RecoverEvent {
+            escrow: ctx.accounts.escrow.key().to_string(),
+            seller: ctx.accounts.seller.key().to_string(),
+            buyer: ctx.accounts.signer.key().to_string(),
+            amount: ctx.accounts.escrow_vault.amount
+        });
+
         Ok(())
     }
 }
@@ -201,7 +280,46 @@ pub struct InitProduct<'info> {
 }
 
 #[derive(Accounts)]
-pub struct Pay<'info> {
+pub struct DirectPay<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub seller: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [
+            b"product".as_ref(),
+            seller.key().as_ref(),
+            product.id.as_ref()
+        ],
+        bump = product.bump,
+        constraint = product.authority == seller.key()
+            @ ErrorCode::IncorrectAuthority,
+        constraint = product.payment_mint == payment_mint.key()
+            @ ErrorCode::IncorrectMint
+    )]
+    pub product: Account<'info, Product>,
+    #[account(
+        mut,
+        constraint = from.owner == signer.key()
+            @ ErrorCode::IncorrectOwner,
+        constraint = from.mint == product.payment_mint
+            @ ErrorCode::IncorrectMint,
+    )]
+    pub from: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = to.owner == seller.key()
+            @ ErrorCode::IncorrectOwner,
+        constraint = to.mint == product.payment_mint
+            @ ErrorCode::IncorrectMint,
+    )]
+    pub to: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub payment_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+#[derive(Accounts)]
+pub struct EscrowPay<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     pub seller: SystemAccount<'info>,
@@ -273,7 +391,7 @@ pub struct Accept<'info> {
             buyer.key().as_ref()
         ],
         bump = escrow.bump,
-        constraint = escrow.seller == signer.key()
+        constraint = escrow.receiver == signer.key()
             @ ErrorCode::IncorrectAuthority,
         constraint = escrow.product == product.key()
             @ ErrorCode::IncorrectProduct,
@@ -335,7 +453,7 @@ pub struct Deny<'info> {
             buyer.key().as_ref()
         ],
         bump = escrow.bump,
-        constraint = escrow.seller == signer.key()
+        constraint = escrow.payer == buyer.key()
             @ ErrorCode::IncorrectAuthority,
         constraint = escrow.product == product.key()
             @ ErrorCode::IncorrectProduct,
@@ -396,7 +514,7 @@ pub struct RecoverFunds<'info> {
             signer.key().as_ref()
         ],
         bump = escrow.bump,
-        constraint = escrow.buyer == signer.key() 
+        constraint = escrow.payer == signer.key() 
             @ ErrorCode::IncorrectAuthority,
         constraint = escrow.product == product.key()
             @ ErrorCode::IncorrectProduct,
@@ -460,15 +578,77 @@ pub struct Escrow {
     /// depending on the blocktime the authority is the buyer or the seller
     /// seller can accept or deny propossal before expire time
     /// buyer can recover funds after expire time
-    pub buyer: Pubkey,
-    pub seller: Pubkey,
+    pub payer: Pubkey,
+    pub receiver: Pubkey,
     pub product: Pubkey,
+    pub product_amount: u64,
     pub expire_time: i64,
     pub vault_bump: u8,
     pub bump: u8,
 }
 
-pub const ESCORW_SIZE: usize = 8 + 32 + 32 + 32 + 8 + 1 + 1;
+pub const ESCORW_SIZE: usize = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 1;
+
+#[event]
+pub struct ProductEvent {
+    pub address: String,
+    pub mint: String,
+    pub seller: String,
+    pub price: u64,
+    pub blocktime: i64,
+} 
+
+#[event]
+pub struct EscrowEvent {
+    pub address: String,
+    pub vault: String,
+    pub mint: String,
+    pub payer: String,
+    pub receiver: String,
+    pub product: String,
+    pub amount: u64,
+    pub product_amount: u64,
+    pub expire_time: i64,
+    pub blocktime: i64,
+}
+
+#[event]
+pub struct DirectPayEvent {
+    pub mint: String,
+    pub payer: String,
+    pub receiver: String,
+    pub product: String,
+    pub amount: u64,
+    pub product_amount: u64,
+    pub blocktime: i64,
+}
+
+#[event]
+pub struct SellerResponseEvent{
+    pub response: SellerResponse,
+    pub escrow: String,
+    pub mint: String,
+    pub payer: String,
+    pub receiver: String,
+    pub product: String,
+    pub amount: u64,
+    pub product_amount: u64,
+    pub blocktime: i64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub enum SellerResponse {
+    Accept,
+    Deny,
+}
+
+#[event]
+pub struct RecoverEvent {
+    pub escrow: String,
+    pub seller: String,
+    pub buyer: String,
+    pub amount: u64
+}
 
 #[error_code]
 pub enum ErrorCode {

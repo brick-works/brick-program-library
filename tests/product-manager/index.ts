@@ -8,23 +8,23 @@ import {
   AccountLayout,
 } from "@solana/spl-token";
 import { 
-  createFundedAssociatedTokenAccount, 
-  createFundedWallet, 
-  createMint,
-  delay,
-} from "../utils";
-import { 
-  ConfirmOptions, 
+  GetTransactionConfig, 
   SYSVAR_RENT_PUBKEY, 
   SystemProgram, 
 } from "@solana/web3.js";
 import BN from "bn.js";
+import { 
+    createFundedAssociatedTokenAccount, 
+    createFundedWallet, 
+    createMint,
+    delay,
+  } from "../utils";
 
 describe("product_manager", () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);
     const program = anchor.workspace.ProductManager as anchor.Program<ProductManager>;
-    const confirmOptions: ConfirmOptions = { commitment: "confirmed" };
+    const confirmOptions: GetTransactionConfig = { commitment: "confirmed" };
 
     // Keypairs:
     let seller: anchor.web3.Keypair;
@@ -46,11 +46,11 @@ describe("product_manager", () => {
 
     // Product properties
     let price: BN;
+    let productAmount: BN;
     let id: Uint8Array;
 
     // Escrow properties
     let expireTime: BN;
-
     let expectedExpirationTime: number;
 
     it("Should create a product", async () => {
@@ -75,12 +75,25 @@ describe("product_manager", () => {
             systemProgram: SystemProgram.programId,
         };
 
-        await program.methods
+        const sig = await program.methods
             .initProduct([...id], price)
             .accounts(initProductAccounts)
             .signers([seller])
-            .rpc(confirmOptions)
-            .catch(console.error);
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
+    
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<ProductData>(event, "product")) {
+                assert.equal(event.data.address.toString(), paymentMint.toString());
+                assert.equal(event.data.mint.toString(), escrowPubkey.toString());
+                assert.equal(event.data.seller.toString(), paymentMint.toString());
+                assert.equal(Number(event.data.price), Number(price));
+            }
+        }
 
         const productAccount = await program.account.product.fetch(productPubkey);
         assert.isDefined(productAccount);
@@ -143,17 +156,21 @@ describe("product_manager", () => {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         };
 
-        await program.methods
-            .pay(expireTime)
+        productAmount = new BN(2);
+        const sig = await program.methods
+            .escrowPay(productAmount, expireTime)
             .accounts(payAccounts)
             .signers([buyer])
-            .rpc(confirmOptions)
-            .catch(console.error);
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
 
         const escrowAccount = await program.account.escrow.fetch(escrowPubkey);
         assert.isDefined(escrowAccount);
-        assert.equal(escrowAccount.buyer.toString(), buyer.publicKey.toString());
-        assert.equal(escrowAccount.seller.toString(), seller.publicKey.toString());
+        assert.equal(escrowAccount.payer.toString(), buyer.publicKey.toString());
+        assert.equal(escrowAccount.receiver.toString(), seller.publicKey.toString());
         assert.equal(escrowAccount.vaultBump, escrowVaultBump);
         assert.equal(escrowAccount.bump, escrowBump);
 
@@ -171,15 +188,31 @@ describe("product_manager", () => {
         const expectedExpirationSeconds = expectedExpirationDate.getSeconds();
         const offChainDate = `${expectedExpirationHour}:${expectedExpirationMinute}:${expectedExpirationSeconds}`;
         assert.equal(onChainDate, offChainDate);
+
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<EscrowData>(event, "escrow")) {
+                assert.equal(event.data.address.toString(), escrowPubkey.toString());
+                assert.equal(event.data.vault.toString(), escrowVaultPubkey.toString());
+                assert.equal(event.data.mint.toString(), paymentMint.toString());
+                assert.equal(event.data.payer.toString(), buyer.publicKey.toString());
+                assert.equal(event.data.receiver.toString(), seller.publicKey.toString());
+                assert.equal(event.data.product.toString(), productPubkey.toString());
+                assert.equal(Number(event.data.amount), Number(price));
+                assert.equal(Number(event.data.productAmount), Number(productAmount));
+                assert.equal(Number(event.data.expireTime), Math.trunc(expectedExpirationDate.getTime() / 1000));
+                assert.equal(Number(event.data.blocktime), Math.trunc(expectedExpirationTime + Number(expireTime)));
+            }
+        }
         
+        buyerVault[1] = buyerVault[1] - Number(price) * Number(productAmount);
         const buyerVaultInfo = await program.provider.connection.getAccountInfo(buyerVault[0]);
         const decodedBuyerATA = AccountLayout.decode(buyerVaultInfo.data);
-        buyerVault[1] = vaultsInitialBalance - Number(price);
         assert.equal(Number(decodedBuyerATA.amount), buyerVault[1]);
         
         const escrowVaultInfo = await program.provider.connection.getAccountInfo(escrowVaultPubkey);
         const decodedEscrowData = AccountLayout.decode(escrowVaultInfo.data);
-        assert.equal(Number(decodedEscrowData.amount), Number(price));
+        assert.equal(Number(decodedEscrowData.amount), Number(price) * Number(productAmount));
     });
 
     /* 
@@ -187,35 +220,35 @@ describe("product_manager", () => {
         the context is where the condition is enforced, the signer of the instruction has to be seller,
         because is stored in the product and the product is also stored on the escrow.
         
-            #[account(
-                mut,
-                seeds = [
-                    b"escrow".as_ref(),
-                    product.key().as_ref(),
-                    buyer.key().as_ref()
-                ],
-                bump = escrow.bump,
-                constraint = escrow.seller == signer.key()
-                    @ ErrorCode::IncorrectAuthority,
-                constraint = escrow.product == product.key()
-                    @ ErrorCode::IncorrectProduct,
-                close = buyer,
-            )]
-            pub escrow: Account<'info, Escrow>,
-            #[account(
-                mut,
-                seeds = [
-                    b"product".as_ref(),
-                    signer.key().as_ref(),
-                    product.id.as_ref()        
-                ],
-                bump = product.bump,
-                constraint = signer.key() == product.authority 
-                    @ ErrorCode::IncorrectAuthority,
-                constraint = product.payment_mint == payment_mint.key()
-                    @ ErrorCode::IncorrectMint
-            )]
-            pub product: Account<'info, Product>,
+        #[account(
+            mut,
+            seeds = [
+                b"escrow".as_ref(),
+                product.key().as_ref(),
+                buyer.key().as_ref()
+            ],
+            bump = escrow.bump,
+            constraint = escrow.seller == signer.key()
+                @ ErrorCode::IncorrectAuthority,
+            constraint = escrow.product == product.key()
+                @ ErrorCode::IncorrectProduct,
+            close = buyer,
+        )]
+        pub escrow: Account<'info, Escrow>,
+        #[account(
+            mut,
+            seeds = [
+                b"product".as_ref(),
+                signer.key().as_ref(),
+                product.id.as_ref()        
+            ],
+            bump = product.bump,
+            constraint = signer.key() == product.authority 
+                @ ErrorCode::IncorrectAuthority,
+            constraint = product.payment_mint == payment_mint.key()
+                @ ErrorCode::IncorrectMint
+        )]
+        pub product: Account<'info, Product>,
     */
     it("After expire time only the buyer can withdraw, before this time only the seller can", async () => {
         const buyerAccounts = {
@@ -251,7 +284,7 @@ describe("product_manager", () => {
                 .rpc(confirmOptions);
         } catch(e) {
             if (e as anchor.AnchorError) {
-                assert.equal(e.error.errorCode.code, "IncorrectAuthority");
+                assert.equal(e.error.errorCode.code, "ConstraintSeeds");
             }
         }
 
@@ -321,12 +354,24 @@ describe("product_manager", () => {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         };
 
-        await program.methods
+        const sig = await program.methods
             .recoverFunds()
             .accounts(recoverAccounts)
             .signers([buyer])
-            .rpc(confirmOptions)
-            .catch(console.error);
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
+
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<RecoverData>(event, "recover")) {
+                assert.equal(event.data.escrow.toString(), escrowPubkey.toString());
+                assert.equal(event.data.seller.toString(), seller.publicKey.toString());
+                assert.equal(event.data.buyer.toString(), buyer.publicKey.toString());
+            }
+        }
 
         const buyerVaultInfo = await program.provider.connection.getAccountInfo(buyerVault[0]);
         const decodedBuyerATA = AccountLayout.decode(buyerVaultInfo.data);
@@ -358,8 +403,9 @@ describe("product_manager", () => {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         };
 
+        productAmount = new BN(1);
         await program.methods
-            .pay(expireTime)
+            .escrowPay(productAmount, expireTime)
             .accounts(payAccounts)
             .signers([buyer])
             .rpc(confirmOptions)
@@ -380,12 +426,28 @@ describe("product_manager", () => {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         };
 
-        await program.methods
+        const sig = await program.methods
             .accept()
             .accounts(acceptAccounts)
             .signers([seller])
-            .rpc(confirmOptions)
-            .catch(console.error);
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
+    
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<SellerResponseData>(event, "sellerResponse")) {
+                assert.equal(Number(event.data.response), SellerResponse.Accept);
+                assert.equal(event.data.escrow.toString(), escrowPubkey.toString());
+                assert.equal(event.data.mint.toString(), paymentMint.toString());
+                assert.equal(event.data.payer.toString(), buyer.toString());
+                assert.equal(event.data.receiver.toString(), buyer.toString());
+                assert.equal(event.data.product.toString(), productPubkey.toString());
+                assert.equal(Number(event.data.amount), Number(price));
+            }
+        }
 
         const sellerVaultInfo = await program.provider.connection.getAccountInfo(sellerVault[0]);
         const decodedSellerATA = AccountLayout.decode(sellerVaultInfo.data);
@@ -418,7 +480,7 @@ describe("product_manager", () => {
         };
 
         await program.methods
-            .pay(expireTime)
+            .escrowPay(productAmount, expireTime)
             .accounts(payAccounts)
             .signers([buyer])
             .rpc(confirmOptions)
@@ -437,15 +499,78 @@ describe("product_manager", () => {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         };
 
-        await program.methods
+        const sig = await program.methods
             .deny()
             .accounts(acceptAccounts)
             .signers([seller])
-            .rpc(confirmOptions)
-            .catch(console.error);
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
+
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<SellerResponseData>(event, "sellerResponse")) {
+                assert.equal(Number(event.data.response), SellerResponse.Deny);
+                assert.equal(event.data.escrow.toString(), escrowPubkey.toString());
+                assert.equal(event.data.mint.toString(), paymentMint.toString());
+                assert.equal(event.data.payer.toString(), buyer.toString());
+                assert.equal(event.data.receiver.toString(), buyer.toString());
+                assert.equal(event.data.product.toString(), productPubkey.toString());
+                assert.equal(Number(event.data.amount), Number(price));
+            }
+        }
 
         const buyerVaultInfo = await program.provider.connection.getAccountInfo(buyerVault[0]);
         const decodedBuyerATA = AccountLayout.decode(buyerVaultInfo.data);
+        assert.equal(Number(decodedBuyerATA.amount), buyerVault[1]);
+        
+        const escrowVaultInfo = await program.provider.connection.getAccountInfo(escrowVaultPubkey);
+        const escrowInfo = await program.provider.connection.getAccountInfo(escrowPubkey);
+
+        if (escrowVaultInfo || escrowInfo) {
+            throw new Error('Escrow and escrow vault should have been closed')
+        } else {
+            console.log('Escrow and escrow vault are closed after withdrawal')
+        }
+    });
+
+    it("Test direct pay", async () => {
+        const payAccounts = {
+            signer: buyer.publicKey,
+            seller: seller.publicKey,
+            product: productPubkey,
+            from: buyerVault[0],
+            to: sellerVault[0],
+            paymentMint: paymentMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+        };
+
+        const sig = await program.methods
+            .directPay(productAmount)
+            .accounts(payAccounts)
+            .signers([buyer])
+            .rpc(confirmOptions);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
+    
+        for (let event of events) {
+            console.log(event)
+            if (isProgramEvent<DirectPayData>(event, "directPay")) {
+                assert.equal(event.data.mint.toString(), paymentMint.toString());
+                assert.equal(event.data.payer.toString(), buyer.publicKey.toString());
+                assert.equal(event.data.receiver.toString(), seller.publicKey.toString());
+                assert.equal(event.data.product.toString(), productPubkey.toString());
+                assert.equal(Number(event.data.amount), Number(price));
+            }
+        }
+
+        const buyerVaultInfo = await program.provider.connection.getAccountInfo(buyerVault[0]);
+        const decodedBuyerATA = AccountLayout.decode(buyerVaultInfo.data);
+        buyerVault[1] = buyerVault[1] - Number(price);
         assert.equal(Number(decodedBuyerATA.amount), buyerVault[1]);
         
         const escrowVaultInfo = await program.provider.connection.getAccountInfo(escrowVaultPubkey);
@@ -466,10 +591,88 @@ async function awaitUntilTimestamp(targetTimestamp: number) {
     const timeRemaining = targetTimestamp + tolerance - currentTimestamp;
   
     if (timeRemaining > 0) {
-      console.log(`Waiting for ${timeRemaining} seconds...`);
-      await delay(timeRemaining * 1000);
-      console.log("Wait complete.");
+        console.log(`Waiting for ${timeRemaining} seconds...`);
+        await delay(timeRemaining * 1000);
+        console.log("Wait complete.");
     } else {
-      console.log("No need to wait, the target timestamp has already passed.");
+        console.log("No need to wait, the target timestamp has already passed.");
     }
+}
+
+type MessageEvent<T extends EventsData> = {
+    name: string;
+    data: T;
+};
+
+type ProductData = {
+    type: "product";
+    address: string;
+    mint: string;
+    seller: string;
+    price: BN;
+    blocktime: BN;
+};
+
+type EscrowData = {
+    type: "escrow";
+    address: string;
+    vault: string;
+    mint: string;
+    payer: string;
+    receiver: string;
+    product: string;
+    amount: BN;
+    productAmount: BN;
+    expireTime: BN;
+    blocktime: BN;
+};
+
+type DirectPayData = {
+    type: "directPay";
+    mint: string;
+    payer: string;
+    receiver: string;
+    product: string;
+    amount: BN;
+    blocktime: BN;
+};
+
+type SellerResponseData = {
+    type: "sellerResponse";
+    response: SellerResponse;
+    escrow: string;
+    mint: string;
+    payer: string;
+    receiver: string;
+    product: string;
+    amount: BN;
+    productAmount: BN;
+    blocktime: BN;
+};
+
+enum SellerResponse {
+    Accept,
+    Deny,
+}
+
+type RecoverData = {
+    type: "recover";
+    escrow: string;
+    seller: string;
+    buyer: string;
+    blocktime: BN;
+};
+
+type EventsData =
+    | ProductData
+    | EscrowData
+    | DirectPayData
+    | SellerResponseData
+    | RecoverData;
+
+function isProgramEvent<T extends EventsData>(
+    event: any,
+    expectedType: T["type"]
+): event is MessageEvent<T> {
+    return event.data && event.data.type === expectedType;
 }
