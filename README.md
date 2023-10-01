@@ -1,11 +1,13 @@
 # brick-program-library
 
-Note: Brick **is subject to change**, is in active development. This code is unaudited. Use at your own risk.
+Note: Brick programs **are subject to change**, is in active development. This code is unaudited. Use at your own risk.
 
-After the refactor I plan to do, the gitbook will be updated.
 ## Overview
 
-Brick is a payment gateway built on the Solana blockchain, facilitating the seamless creation and management of marketplaces to effectively monetize products and services.
+- Marketplace-manager: Payment solution with marketplace mechanics: fees enforcement, rewards and token/cNFT dispenser.
+- Product-manager: Payment solution to use as index to get direct & escrow payment events.
+- Tender: Designed for the public bidding of public projects, offering the community the ability to submit project proposals.
+- User-manager: 🥸?
 
 ## Marketplace customization
 
@@ -20,5 +22,3 @@ The following customizable features are available:
 - **Transaction Fees**: The marketplace has the flexibility to set transaction fees for facilitating transactions between buyers and sellers. This allows marketplaces to generate revenue from the platform operations.
   
 - **Secondary Market Support**: Marketplaces can decide whether products or services can be resold, thereby creating a secondary market for items. When users register a purchase, a token can be minted, granting them access to the specific product or service.
-
-- Users? 🥸

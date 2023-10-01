@@ -163,10 +163,6 @@ describe("product_manager", () => {
             .signers([buyer])
             .rpc(confirmOptions);
 
-        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
-        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
-        const events = eventParser.parseLogs(rawTx.meta.logMessages);
-
         const escrowAccount = await program.account.escrow.fetch(escrowPubkey);
         assert.isDefined(escrowAccount);
         assert.equal(escrowAccount.payer.toString(), buyer.publicKey.toString());
@@ -188,6 +184,10 @@ describe("product_manager", () => {
         const expectedExpirationSeconds = expectedExpirationDate.getSeconds();
         const offChainDate = `${expectedExpirationHour}:${expectedExpirationMinute}:${expectedExpirationSeconds}`;
         assert.equal(onChainDate, offChainDate);
+
+        const rawTx = await provider.connection.getTransaction(sig, confirmOptions);
+        const eventParser = new anchor.EventParser(program.programId, new anchor.BorshCoder(program.idl));
+        const events = eventParser.parseLogs(rawTx.meta.logMessages);
 
         for (let event of events) {
             console.log(event)

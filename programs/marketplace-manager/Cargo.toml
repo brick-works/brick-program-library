@@ -16,7 +16,7 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }
+anchor-lang = { version = "0.28.0" }
 anchor-spl = { version = "0.28.0" }
 account-compression-cpi = { path = "../../../account-compression-anchor-gen/programs/account-compression", features = ["cpi"] }
 bubblegum-cpi = { path = "../../../account-compression-anchor-gen/programs/bubblegum" , features = ["cpi"]}

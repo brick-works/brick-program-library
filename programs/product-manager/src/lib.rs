@@ -133,6 +133,7 @@ pub mod product_manager {
             receiver: ctx.accounts.signer.key().to_string(),
             product: ctx.accounts.product.key().to_string(),
             amount: ctx.accounts.escrow_vault.amount,
+            // product_amount is needed to be stored on the escrow to fill this event field
             product_amount: ctx.accounts.escrow.product_amount,
             blocktime: now
         });
