@@ -18,8 +18,8 @@ default = []
 [dependencies]
 anchor-lang = { version = "0.28.0" }
 anchor-spl = { version = "0.28.0" }
-account-compression-cpi = { path = "../../../account-compression-anchor-gen/programs/account-compression", features = ["cpi"] }
-bubblegum-cpi = { path = "../../../account-compression-anchor-gen/programs/bubblegum" , features = ["cpi"]}
+account-compression-cpi = { git = "https://github.com/ricardocr987/account-compression-anchor.git", features = ["cpi"] }
+bubblegum-cpi = { git = "https://github.com/ricardocr987/account-compression-anchor.git" , features = ["cpi"]}
 mpl-token-metadata = { version = "1.13.2", features = ["no-entrypoint"] }
 spl-token-2022 = { version = "0.6.1", features = ["no-entrypoint"] }
 spl-token = { version = "3.5.0", features = ["no-entrypoint"] } 

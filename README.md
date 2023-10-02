@@ -1,6 +1,16 @@
 # brick-program-library
 
-Note: Brick programs **are subject to change**, is in active development. This code is unaudited. Use at your own risk.
+Note: Brick programs **are subject to change**, are in active development. This code is unaudited. Use at your own risk.
+
+## Key dependencies
+
+- solana-cli: 1.14.25
+- anchor-cli: 0.28.0
+
+## Run program tests
+
+1. anchor build
+2. anchor test
 
 ## Overview
 
