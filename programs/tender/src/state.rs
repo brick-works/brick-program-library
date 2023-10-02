@@ -19,13 +19,13 @@ pub const NETWORK_SIZE: usize = 8 + 32 + 32 + 32 + 32 + 1 + 1 + 1 + 1 + 1;
 pub struct Proposal {
     pub authority: Pubkey,
     pub vault: Pubkey,
-    pub description: [u8; 128],
     pub state: RequestState,
     pub vault_bump: u8,
     pub bump: u8,
+    pub description: String,
 }
 
-pub const PROPOSAL_SIZE: usize = 8 + 32 + 32 + 128 + 8 + 1 + 1;
+pub const PROPOSAL_SIZE: usize = 8 + 32 + 32 + 8 + 1 + 1 + 132;
 
 #[account]
 pub struct Request {

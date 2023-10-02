@@ -9,7 +9,7 @@ use {
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitProposalParams {
     name: String,
-    description: [u8; 128],
+    description: String,
     proposal_uri: String
 }
 

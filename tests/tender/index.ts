@@ -287,8 +287,8 @@ describe("tender", () => {
             tokenMetadataProgram: METADATA_PROGRAM,
         };
         const proposalParams = {
-            name: "Fix issue 123",
-            description: [...parse(uuid())],
+            name: "Build a football pitch",
+            description: "Proposal to build a football pitch for community benefit",
             proposalUri,
         };
         await program.methods
