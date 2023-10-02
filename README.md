@@ -1,5 +1,7 @@
 # brick-program-library
 
+Brickworks is paving and building bricks on Solana. Check out our programs!
+
 Note: Brick programs **are subject to change**, are in active development. This code is unaudited. Use at your own risk.
 
 ## Key dependencies
@@ -9,8 +11,9 @@ Note: Brick programs **are subject to change**, are in active development. This 
 
 ## Run program tests
 
-1. anchor build
-2. anchor test
+1. git clone https://github.com/brick-works/brick-program-library
+2. anchor build
+3. anchor test
 
 ## Overview
 
