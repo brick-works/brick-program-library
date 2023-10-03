@@ -22,6 +22,7 @@ pub struct InitCouncilMember<'info> {
         seeds = [
             b"proposal".as_ref(),
             signer.key().as_ref(),
+            proposal.id.as_ref()
         ],
         bump
     )]

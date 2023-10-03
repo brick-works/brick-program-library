@@ -8,12 +8,14 @@ use {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitProposalParams {
+    id: [u8; 16],
     name: String,
     description: String,
     proposal_uri: String
 }
 
 #[derive(Accounts)]
+#[instruction(params: InitProposalParams)]
 pub struct InitProposal<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -30,6 +32,7 @@ pub struct InitProposal<'info> {
         seeds = [
             b"proposal".as_ref(),
             signer.key().as_ref(),
+            params.id.as_ref(),
         ],
         bump
     )]
@@ -140,6 +143,7 @@ pub struct InitProposal<'info> {
 pub fn handler<'info>(ctx: Context<InitProposal>, params: InitProposalParams) -> Result<()> {
     let signer_key: Pubkey = ctx.accounts.signer.key();
 
+    (*ctx.accounts.proposal).id = params.id;
     (*ctx.accounts.proposal).authority = signer_key;
     (*ctx.accounts.proposal).vault = ctx.accounts.vault.key();
     (*ctx.accounts.proposal).description = params.description;
@@ -150,6 +154,7 @@ pub fn handler<'info>(ctx: Context<InitProposal>, params: InitProposalParams) ->
     let proposal_seeds = &[
         b"proposal".as_ref(),
         signer_key.as_ref(),
+        ctx.accounts.proposal.id.as_ref(),
         &[ctx.accounts.proposal.bump],
     ];
 

@@ -23,6 +23,7 @@ pub struct Deposit<'info> {
         seeds = [
             b"proposal".as_ref(),
             proposal.authority.as_ref(),
+            proposal.id.as_ref()
         ],
         bump = proposal.bump
     )]
