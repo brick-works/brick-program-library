@@ -116,8 +116,6 @@ pub struct InitRoles<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<InitRoles>, params: InitRolesParams) -> Result<()> {
-    let signer_key = ctx.accounts.signer.key();
-
     let network_seeds = &[
         b"network".as_ref(),
         &[ctx.accounts.network.bump],

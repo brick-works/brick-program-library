@@ -118,8 +118,6 @@ pub struct InitNetwork<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<InitNetwork>, proposal_collection_uri: String) -> Result<()> {
-    let signer_key = ctx.accounts.signer.key();
-
     (*ctx.accounts.network).council_collection = ctx.accounts.council_collection.key();
     (*ctx.accounts.network).service_collection = ctx.accounts.service_collection.key();
     (*ctx.accounts.network).proposal_collection = ctx.accounts.proposal_collection.key();

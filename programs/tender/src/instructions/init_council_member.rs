@@ -102,7 +102,6 @@ pub struct InitCouncilMember<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<InitCouncilMember>) -> Result<()> {
-    let signer_key = ctx.accounts.signer.key();
     let network_seeds = &[
         b"network".as_ref(),
         &[ctx.accounts.network.bump],

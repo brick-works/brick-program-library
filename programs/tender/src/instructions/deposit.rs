@@ -40,7 +40,7 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub deposit_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
-        init,
+        init_if_needed,
         payer = signer,
         associated_token::mint = network_mint,
         associated_token::authority = signer,

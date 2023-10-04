@@ -309,10 +309,10 @@ describe("tender", () => {
             await createFundedAssociatedTokenAccount(
               provider,
               paymentMint,
-              10,
+              100,
               depositor
             ),
-            10
+            100
         ];
         const receiverVault = getAssociatedTokenAddressSync(networkMint, depositor.publicKey, false);
         const depositAccounts = {
@@ -326,6 +326,13 @@ describe("tender", () => {
             networkMint,
             tokenProgram: TOKEN_PROGRAM_ID,
         };
+
+        await program.methods
+            .deposit(new anchor.BN(10))
+            .accounts(depositAccounts)
+            .signers([depositor])
+            .rpc(confirmOptions)
+            .catch(console.error);
 
         await program.methods
             .deposit(new anchor.BN(10))
