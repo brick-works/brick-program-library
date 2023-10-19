@@ -51,7 +51,7 @@ pub struct InitReward<'info> {
 
 pub fn handler<'info>(ctx: Context<InitReward>) -> Result<()> {
     (*ctx.accounts.reward).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.reward).bump = *ctx.bumps.get("reward").unwrap();
+    (*ctx.accounts.reward).bump = ctx.bumps.reward;
     
     Ok(())
 }

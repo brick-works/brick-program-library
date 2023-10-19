@@ -34,7 +34,7 @@ pub struct RequestAccess<'info> {
 
 pub fn handler<'info>(ctx: Context<RequestAccess>) -> Result<()> {
     (*ctx.accounts.request).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.request).bump = *ctx.bumps.get("request").unwrap();
+    (*ctx.accounts.request).bump = ctx.bumps.request;
     
     Ok(())
 }

@@ -1,25 +1,28 @@
 # brick-program-library
 
-Brickworks is paving and building bricks on Solana. Check out our programs!
+BrickWorks is paving and building bricks on Solana. Check out our programs!
 
 Note: Brick programs **are subject to change**, are in active development. This code is unaudited. Use at your own risk.
 
 ## Key dependencies
 
-- solana-cli: 1.14.25
-- anchor-cli: 0.28.0
+- solana-cli: 1.16.17
+- anchor-cli: 0.29.0
 
 ## Run program tests
 
 1. git clone https://github.com/brick-works/brick-program-library
 2. anchor build
-3. anchor test
+3. solana-test-validator
+4. anchor deploy
+5. close local validator
+6. anchor test
 
 ## Overview
 
 - Marketplace-manager: Payment solution with marketplace mechanics: fees enforcement, rewards and token/cNFT dispenser.
 - Product-manager: Payment solution to use as index to get direct & escrow payment events.
-- Tender: Designed for the public bidding of public projects, offering the community the ability to submit project proposals.
+- Tender: Designed for the bidding of public projects, offering the community the ability to submit project proposals and deposits.
 - User-manager: 🥸?
 
 ## Marketplace customization

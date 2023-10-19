@@ -11,6 +11,7 @@ use {
     anchor_spl::{
         token_interface::{Mint, TokenInterface, TokenAccount},
         token::{transfer, Transfer},
+        metadata::ID as TOKEN_METADATA_ID,
     },
     spl_token::native_mint::ID as NativeMint,
     bubblegum_cpi::{
@@ -18,7 +19,7 @@ use {
         program::Bubblegum,
         Collection, Creator, MetadataArgs, TokenProgramVersion, TokenStandard, TreeConfig,
     },
-    account_compression_cpi::{program::SplAccountCompression, Noop}
+    spl_account_compression::ID as COMPRESSION_ID,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -178,11 +179,14 @@ pub struct RegisterBuyCnft<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
     pub rent: Sysvar<'info, Rent>,
-    pub log_wrapper: Program<'info, Noop>,
+    /// CHECK: Handled by cpi
+    pub log_wrapper: AccountInfo<'info>,
     pub bubblegum_program: Program<'info, Bubblegum>,
-    pub compression_program: Program<'info, SplAccountCompression>,
     /// CHECK: Checked with constraints
-    #[account(address = mpl_token_metadata::ID)]
+    #[account(address = COMPRESSION_ID)]
+    pub compression_program: AccountInfo<'info>,
+    /// CHECK: Checked with constraints
+    #[account(address = TOKEN_METADATA_ID)]
     pub token_metadata_program: AccountInfo<'info>,
 }
 

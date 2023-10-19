@@ -23,10 +23,9 @@ pub struct Proposal {
     pub state: RequestState,
     pub vault_bump: u8,
     pub bump: u8,
-    pub description: String,
 }
 
-pub const PROPOSAL_SIZE: usize = 8 + 16 + 32 + 32 + 8 + 1 + 1 + 132;
+pub const PROPOSAL_SIZE: usize = 8 + 16 + 32 + 32 + 8 + 1;
 
 #[account]
 pub struct Request {

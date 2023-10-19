@@ -19,7 +19,7 @@ pub mod product_manager {
         (*ctx.accounts.product).authority = ctx.accounts.signer.key();
         (*ctx.accounts.product).payment_mint = ctx.accounts.payment_mint.key();
         (*ctx.accounts.product).price = price;
-        (*ctx.accounts.product).bump = *ctx.bumps.get("product").unwrap();
+        (*ctx.accounts.product).bump = ctx.bumps.product;
 
         emit!(ProductEvent {
             address: ctx.accounts.product.key().to_string(),
@@ -39,8 +39,8 @@ pub mod product_manager {
         (*ctx.accounts.escrow).product_amount = product_amount;
         let now = Clock::get().unwrap().unix_timestamp;
         (*ctx.accounts.escrow).expire_time = now + expire_time;
-        (*ctx.accounts.escrow).vault_bump = *ctx.bumps.get("escrow_vault").unwrap();
-        (*ctx.accounts.escrow).bump = *ctx.bumps.get("escrow").unwrap();
+        (*ctx.accounts.escrow).vault_bump = ctx.bumps.escrow_vault;
+        (*ctx.accounts.escrow).bump = ctx.bumps.escrow;
 
         transfer(
             CpiContext::new(

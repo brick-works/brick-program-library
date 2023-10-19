@@ -15,14 +15,14 @@ pub mod user_manager {
 
     pub fn init_admin(ctx: Context<InitAdmin>) -> Result<()> {
         (*ctx.accounts.admin).authority = ctx.accounts.signer.key();
-        (*ctx.accounts.admin).bump = *ctx.bumps.get("admin").unwrap();
+        (*ctx.accounts.admin).bump = ctx.bumps.admin;
 
         Ok(())
     }
 
     pub fn init_user(ctx: Context<InitUser>, id: [u8; 16]) -> Result<()> {
         (*ctx.accounts.user).id = id;
-        (*ctx.accounts.user).bump = *ctx.bumps.get("user").unwrap();
+        (*ctx.accounts.user).bump = ctx.bumps.user;
 
         Ok(())
     }

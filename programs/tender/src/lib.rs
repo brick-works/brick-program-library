@@ -1,13 +1,12 @@
 pub mod state;
 pub mod error;
-pub mod utils;
 mod instructions;
 use {
     anchor_lang::prelude::*,
     instructions::*,
 };
 
-declare_id!("BHQvQgoMZhCKuVeoVhsy8agZQYwMuvzXwrEYoEHHDgGJ");
+declare_id!("E6E7kfSE21wnKrpvtEQsCj3XFnZyeXu6UjoLcjogqbLQ");
 
 #[program]
 pub mod tender {
@@ -25,8 +24,8 @@ pub mod tender {
         deposit::handler(ctx, amount)
     }
 
-    pub fn do_request(ctx: Context<DoRequest>) -> Result<()> {
-        do_request::handler(ctx)
+    pub fn do_request(ctx: Context<DoRequest>, price: u64) -> Result<()> {
+        do_request::handler(ctx, price)
     }
 
     pub fn init_council_member(ctx: Context<InitCouncilMember>) -> Result<()> {

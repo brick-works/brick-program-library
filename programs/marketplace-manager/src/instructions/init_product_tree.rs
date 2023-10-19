@@ -2,13 +2,22 @@ use {
     crate::state::*,
     crate::utils::assert_derivation,
     crate::error::ErrorCode,
-    crate::utils::{create_metadata_accounts_v3, CreateMetadataAccountsV3, create_master_edition_v3, CreateMasterEditionV3},
     anchor_lang::prelude::*,
     anchor_lang::system_program::System,
-    anchor_spl::{token_interface::{Mint, TokenAccount, TokenInterface, mint_to, MintTo}, associated_token::AssociatedToken},
+    anchor_spl::{
+        token_interface::{Mint, TokenAccount, TokenInterface, MintTo, mint_to}, 
+        associated_token::AssociatedToken,
+        metadata::{
+            create_master_edition_v3, 
+            CreateMasterEditionV3, 
+            create_metadata_accounts_v3,
+            CreateMetadataAccountsV3,
+            mpl_token_metadata::types::{DataV2, Creator, CollectionDetails},
+            ID as TOKEN_METADATA_ID
+        },
+    },
     bubblegum_cpi::{program::Bubblegum, cpi::{create_tree, accounts::CreateTree}},
-    account_compression_cpi::{Noop, program::SplAccountCompression},
-    mpl_token_metadata::state::{DataV2, Creator, CollectionDetails}
+    spl_account_compression::ID as COMPRESSION_ID,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -129,14 +138,17 @@ pub struct InitProductTree<'info> {
     pub tree_authority: AccountInfo<'info>,
     pub rent: Sysvar<'info, Rent>,
     /// CHECK: Checked with constraints
-    #[account(address = mpl_token_metadata::ID)]
+    #[account(address = TOKEN_METADATA_ID)]
     pub token_metadata_program: AccountInfo<'info>,
-    pub log_wrapper: Program<'info, Noop>,
-    pub system_program: Program<'info, System>,
+    /// CHECK: Handled by cpi
+    pub log_wrapper: AccountInfo<'info>,
     pub bubblegum_program: Program<'info, Bubblegum>,
-    pub compression_program: Program<'info, SplAccountCompression>,
+    /// CHECK: Checked with constraints
+    #[account(address = COMPRESSION_ID)]
+    pub compression_program: AccountInfo<'info>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreeParams) -> Result<()> {
@@ -160,8 +172,8 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
         product_price: params.product_price,
     };
     (*ctx.accounts.product).bumps = ProductBumps {
-        bump: *ctx.bumps.get("product").unwrap(),
-        mint_bump: *ctx.bumps.get("product_mint").unwrap(),
+        bump: ctx.bumps.product,
+        mint_bump: ctx.bumps.product_mint,
     };
 
     let mint_seeds: &[&[u8]] = &[
@@ -171,7 +183,7 @@ pub fn handler<'info>(ctx: Context<InitProductTree>, params: InitProductTreePara
 
     assert_derivation(&ctx.program_id,&ctx.accounts.product_mint.to_account_info(),  mint_seeds.clone())?;
     let mut signer_mint_seeds = mint_seeds.to_vec();
-    let bump = &[*ctx.bumps.get("product_mint").unwrap()];
+    let bump = &[ctx.bumps.product_mint];
     signer_mint_seeds.push(bump);
 
     let product_seeds = &[

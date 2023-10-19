@@ -103,7 +103,7 @@ pub fn handler<'info>(ctx: Context<InitProduct>, params: InitProductParams) -> R
         product_price: params.product_price,
     };
     (*ctx.accounts.product).bumps = ProductBumps {
-        bump: *ctx.bumps.get("product").unwrap(),
+        bump: ctx.bumps.product,
         mint_bump: params.product_mint_bump,
     };
 

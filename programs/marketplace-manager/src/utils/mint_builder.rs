@@ -12,7 +12,8 @@ use {
     spl_token_2022::{
         extension::ExtensionType,
         state::Mint as Mint2022,
-        instruction::initialize_non_transferable_mint
+        instruction::initialize_non_transferable_mint,
+        
     },
 };
 
@@ -29,11 +30,14 @@ pub fn mint_builder<'info>(
     rent: Sysvar<'_, Rent>,
 ) -> std::result::Result<(), ErrorCode> {
     let space = if extensions.is_empty() {
-        ExtensionType::get_account_len::<Mint2022>(&[])
+        ExtensionType::try_calculate_account_len::<Mint2022>(&[]).unwrap_or_default()
     } else {
-        extensions.iter().map(|ext| ExtensionType::get_account_len::<Mint2022>(&[*ext])).sum()
+        extensions
+            .iter()
+            .map(|ext| ExtensionType::try_calculate_account_len::<Mint2022>(&[*ext]).unwrap_or_default())
+            .sum()
     };
-
+    
     create_account(
         CpiContext::new_with_signer(
             system_program,

@@ -1,10 +1,8 @@
 pub mod mint_builder;
 pub mod handle_payment;
-pub mod token_metadata;
 
 pub use mint_builder::*;
 pub use handle_payment::*;
-pub use token_metadata::*;
 
 use anchor_lang::{
     prelude::*,

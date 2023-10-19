@@ -4,7 +4,7 @@ use {
     anchor_lang::prelude::*,
     anchor_lang::system_program::System,
     bubblegum_cpi::{program::Bubblegum, cpi::{create_tree, accounts::CreateTree}},
-    account_compression_cpi::{Noop, program::SplAccountCompression},
+    spl_account_compression::ID as COMPRESSION_ID,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
@@ -52,10 +52,13 @@ pub struct UpdateProductTree<'info> {
     #[account(mut)]
     pub merkle_tree: UncheckedAccount<'info>,
 
-    pub log_wrapper: Program<'info, Noop>,
+    /// CHECK: Handled by cpi
+    pub log_wrapper: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub bubblegum_program: Program<'info, Bubblegum>,
-    pub compression_program: Program<'info, SplAccountCompression>,
+    /// CHECK: Checked with constraints
+    #[account(address = COMPRESSION_ID)]
+    pub compression_program: AccountInfo<'info>,
 }
 
 pub fn handler(ctx: Context<UpdateProductTree>, params: UpdateProductTreeParams) -> Result<()> {

@@ -1,4 +1,3 @@
-import { PROGRAM_ID as METADATA_PROGRAM } from "@metaplex-foundation/mpl-token-metadata";
 import { Tender } from "../../target/types/tender";
 import * as anchor from "@coral-xyz/anchor";
 import { v4 as uuid, parse } from "uuid";
@@ -8,17 +7,20 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { 
-    ComputeBudgetProgram,
-    GetTransactionConfig, 
-    SYSVAR_RENT_PUBKEY, 
-    SystemProgram, 
+  ComputeBudgetProgram,
+  GetTransactionConfig, 
+  SYSVAR_RENT_PUBKEY, 
+  SystemProgram, 
+  PublicKey
 } from "@solana/web3.js";
 import { 
-    createFundedAssociatedTokenAccount, 
-    createFundedWallet, 
-    createMint,
-    delay,
+  createFundedAssociatedTokenAccount, 
+  createFundedWallet, 
+  createMint,
+  delay,
 } from "../utils";
+
+const METADATA_PROGRAM = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 
 describe("tender", () => {
     const provider = anchor.AnchorProvider.env();
@@ -227,7 +229,6 @@ describe("tender", () => {
         [proposal] = anchor.web3.PublicKey.findProgramAddressSync(
             [
                 Buffer.from("proposal", "utf-8"),
-                proposalCreator.publicKey.toBuffer(),
                 proposalId,
             ],
             program.programId
@@ -291,7 +292,6 @@ describe("tender", () => {
         const proposalParams = {
             id: [...proposalId],
             name: "Build a football pitch",
-            description: "Proposal to build a football pitch for community benefit",
             proposalUri,
         };
         await program.methods
@@ -334,6 +334,7 @@ describe("tender", () => {
             .rpc(confirmOptions)
             .catch(console.error);
 
+        await delay(500);
         await program.methods
             .deposit(new anchor.BN(10))
             .accounts(depositAccounts)

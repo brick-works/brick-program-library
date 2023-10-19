@@ -136,7 +136,7 @@ pub fn handler<'info>(ctx: Context<InitMarketplace>, params: InitMarketplacePara
         rewards_enabled: params.rewards_enabled,
     };
     (*ctx.accounts.marketplace).bumps = MarketplaceBumps {
-        bump: *ctx.bumps.get("marketplace").unwrap(),
+        bump: ctx.bumps.marketplace,
         access_mint_bump: params.access_mint_bump,
     };
 

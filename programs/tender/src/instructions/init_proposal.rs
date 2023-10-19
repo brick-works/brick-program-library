@@ -1,16 +1,26 @@
 use {
     crate::state::*,
     anchor_lang::prelude::*,
-    crate::utils::{create_metadata_accounts_v3, create_master_edition_v3, CreateMasterEditionV3, CreateMetadataAccountsV3, VerifyItem, verify_item},
-    anchor_spl::{token_interface::{Mint, TokenInterface, TokenAccount, mint_to, MintTo}, associated_token::AssociatedToken},
-    mpl_token_metadata::state::{DataV2, Creator, CollectionDetails, Collection}
+    anchor_spl::{
+        token_interface::{Mint, TokenInterface, TokenAccount, mint_to, MintTo},
+        metadata::{
+            CreateMetadataAccountsV3,
+            create_metadata_accounts_v3,
+            mpl_token_metadata::types::{DataV2, Creator, Collection, CollectionDetails},
+            create_master_edition_v3, 
+            CreateMasterEditionV3, 
+            ID as TokenMetadataProgram,
+            VerifySizedCollectionItem, 
+            verify_sized_collection_item,
+        },
+        associated_token::AssociatedToken
+    }
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitProposalParams {
     id: [u8; 16],
     name: String,
-    description: String,
     proposal_uri: String
 }
 
@@ -31,12 +41,11 @@ pub struct InitProposal<'info> {
         payer = signer,
         seeds = [
             b"proposal".as_ref(),
-            signer.key().as_ref(),
             params.id.as_ref(),
         ],
         bump
     )]
-    pub proposal: Account<'info, Proposal>,
+    pub proposal: Box<Account<'info, Proposal>>,
     #[account(
         init,
         payer = signer,
@@ -136,7 +145,7 @@ pub struct InitProposal<'info> {
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     /// CHECK: Checked with constraints
-    #[account(address = mpl_token_metadata::ID)]
+    #[account(address = TokenMetadataProgram)]
     pub token_metadata_program: AccountInfo<'info>,
 }
 
@@ -146,14 +155,12 @@ pub fn handler<'info>(ctx: Context<InitProposal>, params: InitProposalParams) ->
     (*ctx.accounts.proposal).id = params.id;
     (*ctx.accounts.proposal).authority = signer_key;
     (*ctx.accounts.proposal).vault = ctx.accounts.vault.key();
-    (*ctx.accounts.proposal).description = params.description;
     (*ctx.accounts.proposal).state = RequestState::SigningOff;
-    (*ctx.accounts.proposal).vault_bump = *ctx.bumps.get("vault").unwrap();
-    (*ctx.accounts.proposal).bump = *ctx.bumps.get("proposal").unwrap();
+    (*ctx.accounts.proposal).vault_bump = ctx.bumps.vault;
+    (*ctx.accounts.proposal).bump = ctx.bumps.proposal;
 
     let proposal_seeds = &[
         b"proposal".as_ref(),
-        signer_key.as_ref(),
         ctx.accounts.proposal.id.as_ref(),
         &[ctx.accounts.proposal.bump],
     ];
@@ -230,9 +237,9 @@ pub fn handler<'info>(ctx: Context<InitProposal>, params: InitProposalParams) ->
         &[ctx.accounts.network.bump],
     ];
 
-    verify_item(CpiContext::new_with_signer(
+    verify_sized_collection_item(CpiContext::new_with_signer(
         ctx.accounts.token_metadata_program.clone(),
-        VerifyItem {
+        VerifySizedCollectionItem {
             metadata: ctx.accounts.proposal_metadata.to_account_info().clone(),
             collection_authority: ctx.accounts.network.to_account_info().clone(),
             payer: ctx.accounts.signer.to_account_info().clone(),
@@ -241,7 +248,9 @@ pub fn handler<'info>(ctx: Context<InitProposal>, params: InitProposalParams) ->
             collection_master_edition: ctx.accounts.proposal_collection_master_edition.to_account_info().clone(),
         },
         &[&network_seeds[..]],
-    ))?;
+        ),
+        None
+    )?;    
     
     Ok(())
 }

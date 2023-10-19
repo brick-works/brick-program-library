@@ -1,9 +1,18 @@
 use {
     crate::state::*,
-    crate::utils::{create_metadata_accounts_v3, create_master_edition_v3, CreateMasterEditionV3, CreateMetadataAccountsV3},
     anchor_lang::prelude::*,
-    anchor_spl::{token_interface::{Mint, TokenAccount, TokenInterface, mint_to, MintTo}, associated_token::AssociatedToken},
-    mpl_token_metadata::state::{DataV2, Creator, CollectionDetails}
+    anchor_spl::{
+        token_interface::{Mint, TokenInterface, TokenAccount, mint_to, MintTo},
+        metadata::{
+            CreateMetadataAccountsV3,
+            create_metadata_accounts_v3,
+            mpl_token_metadata::types::{DataV2, Creator, CollectionDetails},
+            create_master_edition_v3, 
+            CreateMasterEditionV3, 
+            ID as TokenMetadataProgram
+        },
+        associated_token::AssociatedToken
+    }
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -111,7 +120,7 @@ pub struct InitRoles<'info> {
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     /// CHECK:
-    #[account(address = mpl_token_metadata::ID)]
+    #[account(address = TokenMetadataProgram)]
     pub token_metadata_program: AccountInfo<'info>,
 }
 
