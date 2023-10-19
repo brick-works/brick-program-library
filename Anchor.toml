@@ -3,9 +3,9 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-marketplace_manager = "7so9inMdB3rWrrQD4jq3s9Yq8AELRh8nsFKUTh3VWoe4"
+marketplace_manager = "brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF"
 product_manager = "ESb8CKVxVNpDS3c1fsrWwmMkfKga7Z9pdAdbKU5Lv3VU"
-tender = "E6E7kfSE21wnKrpvtEQsCj3XFnZyeXu6UjoLcjogqbLQ"
+tender = "BHQvQgoMZhCKuVeoVhsy8agZQYwMuvzXwrEYoEHHDgGJ"
 user_manager = "6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa"
 
 [registry]
@@ -13,7 +13,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
-wallet = "../../.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

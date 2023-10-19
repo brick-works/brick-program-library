@@ -9,15 +9,6 @@ Note: Brick programs **are subject to change**, are in active development. This 
 - solana-cli: 1.16.17
 - anchor-cli: 0.29.0
 
-## Run program tests
-
-1. git clone https://github.com/brick-works/brick-program-library
-2. anchor build
-3. solana-test-validator
-4. anchor deploy
-5. close local validator
-6. anchor test
-
 ## Overview
 
 - Marketplace-manager: Payment solution with marketplace mechanics: fees enforcement, rewards and token/cNFT dispenser.
@@ -38,3 +29,14 @@ The following customizable features are available:
 - **Transaction Fees**: The marketplace has the flexibility to set transaction fees for facilitating transactions between buyers and sellers. This allows marketplaces to generate revenue from the platform operations.
   
 - **Secondary Market Support**: Marketplaces can decide whether products or services can be resold, thereby creating a secondary market for items. When users register a purchase, a token can be minted, granting them access to the specific product or service.
+
+## Run program tests
+
+Note: preferably run the tests individually by modifying the script on Anchor.toml
+
+1. git clone https://github.com/brick-works/brick-program-library
+2. anchor build
+3. solana-test-validator
+4. anchor deploy
+5. close local validator
+6. anchor test

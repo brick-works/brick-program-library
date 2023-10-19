@@ -7,7 +7,7 @@ use {
     instructions::*,
 };
 
-declare_id!("7so9inMdB3rWrrQD4jq3s9Yq8AELRh8nsFKUTh3VWoe4");
+declare_id!("brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF");
 
 #[program]
 pub mod marketplace_manager {
