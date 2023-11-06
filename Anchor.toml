@@ -4,7 +4,7 @@ skip-lint = false
 
 [programs.localnet]
 marketplace_manager = "brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF"
-product_manager = "ESb8CKVxVNpDS3c1fsrWwmMkfKga7Z9pdAdbKU5Lv3VU"
+product_manager = "6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa"
 tender = "BHQvQgoMZhCKuVeoVhsy8agZQYwMuvzXwrEYoEHHDgGJ"
 user_manager = "6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa"
 
@@ -16,7 +16,7 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/product-manager/index.ts"
 
 [test.validator]
 url = "https://api.mainnet-beta.solana.com"

@@ -8,7 +8,7 @@ use {
     }
 };
 
-declare_id!("ESb8CKVxVNpDS3c1fsrWwmMkfKga7Z9pdAdbKU5Lv3VU");
+declare_id!("6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa");
 
 #[program]
 pub mod product_manager {
@@ -308,7 +308,11 @@ pub struct DirectPay<'info> {
     )]
     pub from: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
-        mut,
+        init_if_needed,
+        payer = signer,
+        associated_token::mint = payment_mint,
+        associated_token::authority = seller,
+        associated_token::token_program = token_program,
         constraint = to.owner == seller.key()
             @ ErrorCode::IncorrectOwner,
         constraint = to.mint == product.payment_mint
@@ -316,7 +320,10 @@ pub struct DirectPay<'info> {
     )]
     pub to: Box<InterfaceAccount<'info, TokenAccount>>,
     pub payment_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub rent: Sysvar<'info, Rent>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]

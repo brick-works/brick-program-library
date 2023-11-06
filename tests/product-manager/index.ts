@@ -544,7 +544,10 @@ describe("product_manager", () => {
             from: buyerVault[0],
             to: sellerVault[0],
             paymentMint: paymentMint,
+            rent: SYSVAR_RENT_PUBKEY,
             tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenAccount: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId
         };
 
         const sig = await program.methods
