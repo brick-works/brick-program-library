@@ -1,11 +1,10 @@
-pub mod state;
 pub mod utils;
 pub mod error;
-mod instructions;
-use {
-    anchor_lang::prelude::*,
-    instructions::*,
-};
+pub mod instructions;
+pub mod state;
+use anchor_lang::prelude::*;
+use instructions::*;
+use state::*;
 
 declare_id!("brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF");
 
@@ -23,14 +22,18 @@ pub mod marketplace_manager {
         airdrop_access::handler(ctx)
     }
 
+    /// marketplace authority can edit fees and rewards configs
+    pub fn edit_marketplace(
+        ctx: Context<EditMarketplace>, 
+        fees_config: Option<FeesConfig>,
+        rewards_config: Option<RewardsConfig>,
+    ) -> Result<()> {
+        edit_marketplace::handler(ctx, fees_config, rewards_config)
+    }
+
     /// seller can edit payment_mint and product_price
     pub fn edit_product(ctx: Context<EditProduct>, product_price: u64) -> Result<()> {
         edit_product::handler(ctx, product_price)
-    }
-
-    /// marketplace authority can edit fees and rewards configs
-    pub fn edit_marketplace(ctx: Context<EditMarketplace>, params: EditMarketplaceParams) -> Result<()> {
-        edit_marketplace::handler(ctx, params)
     }
 
     /// marketplace auth can create multiple bounty vaults (different mints)
@@ -38,19 +41,29 @@ pub mod marketplace_manager {
         init_bounty::handler(ctx)
     }
 
-    /// recommeded to read the Marketplace state code to understand the meaning of this data structure 
-    pub fn init_marketplace(ctx: Context<InitMarketplace>, params: InitMarketplaceParams) -> Result<()> {
-        init_marketplace::handler(ctx, params)
+    /// marketplace initialization:
+    /// creates the access mint independently you want a permissionless marketplace or not
+    pub fn init_marketplace(
+        ctx: Context<InitMarketplace>,
+        access_mint_bump: u8,
+        fees_config: Option<FeesConfig>,
+        rewards_config: Option<RewardsConfig>,
+    ) -> Result<()> {
+        init_marketplace::handler(
+            ctx, 
+            access_mint_bump,
+            fees_config, 
+            rewards_config,
+        )
     }
 
     /// recommeded to read the Product state code to understand the meaning of this data structure 
-    pub fn init_product_tree(ctx: Context<InitProductTree>, params: InitProductTreeParams) -> Result<()> {
-        init_product_tree::handler(ctx, params)
-    }
-
-    /// recommeded to read the Product state code to understand the meaning of this data structure 
-    pub fn init_product(ctx: Context<InitProduct>, params: InitProductParams) -> Result<()> {
-        init_product::handler(ctx, params)
+    pub fn init_product(
+        ctx: Context<InitProduct>,     
+        id: [u8; 16],
+        product_price: u64
+    ) -> Result<()> {
+        init_product::handler(ctx, id, product_price)
     }
 
     /// if a marketplace wants to change the reward mint, sellers and buyers have to create a new vault
@@ -63,33 +76,12 @@ pub mod marketplace_manager {
         init_reward::handler(ctx)
     }
     
-    pub fn register_buy_cnft(ctx: Context<RegisterBuyCnft>, params: RegisterBuyCnftParams) -> Result<()> {
-        register_buy_cnft::handler(ctx, params)
-    }
-
-    /// manages the transfers (buyer -> seller and fees to marketplace authority) 
-    /// and buyers receive a token as a proof of payment (each product has its own tokenc)
-    pub fn register_buy_fungible(ctx: Context<RegisterBuyToken>, amount: u32) -> Result<()> {
-        register_buy_fungible::handler(ctx, amount)
-    }
-
     /// manages the transfers (buyer -> seller and fees to marketplace authority)
-    /// uses payment pda to index transactions, but it does not initilize it
     pub fn register_buy(ctx: Context<RegisterBuy>, amount: u32) -> Result<()> {
         register_buy::handler(ctx, amount)
     }
 
-    /// creates on chain request to get access to sell products in a specific marketplace
-    pub fn request_access(ctx: Context<RequestAccess>) -> Result<()> {
-        request_access::handler(ctx)
-    }
-
-    /// creates o new tree related to the product
-    pub fn update_tree(ctx: Context<UpdateProductTree>, params: UpdateProductTreeParams) -> Result<()> {
-        update_tree::handler(ctx, params)
-    }
-    
-    /// when promotion is ended users can withdraw the funds stored in the vaults, managed by the reward PFA
+    /// when promotion is ended users can withdraw the funds stored in the vaults, managed by the reward PDA
     pub fn withdraw_reward(ctx: Context<WithdrawReward>) -> Result<()> {
         withdraw_reward::handler(ctx)
     }

@@ -14,10 +14,7 @@ pub struct InitBounty<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [
-            b"marketplace".as_ref(),
-            marketplace.authority.as_ref(),
-        ],
+        seeds = [Marketplace::get_seeds(&signer.key())],
         bump = marketplace.bumps.bump,
         constraint = signer.key() == marketplace.authority
             @ErrorCode::IncorrectAuthority
@@ -27,11 +24,7 @@ pub struct InitBounty<'info> {
     #[account(
         init,
         payer = signer,
-        seeds = [
-            b"bounty_vault".as_ref(), 
-            marketplace.key().as_ref(),
-            reward_mint.key().as_ref(),
-        ],
+        seeds = [Marketplace::get_vault_seeds(&marketplace.key(), &reward_mint.key())],
         bump,
         token::mint = reward_mint,
         token::authority = marketplace,

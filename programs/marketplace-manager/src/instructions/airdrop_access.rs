@@ -10,6 +10,7 @@ use {
     }
 };
 
+/// CHECK: this instruction only needs the marketplace authority == signer validation
 #[derive(Accounts)]
 pub struct AirdropAccess<'info> {
     #[account(mut)]
@@ -18,10 +19,7 @@ pub struct AirdropAccess<'info> {
     pub receiver: SystemAccount<'info>,
     #[account(
         mut,
-        seeds = [
-            b"marketplace".as_ref(),
-            signer.key().as_ref(),
-        ],
+        seeds = [Marketplace::get_seeds(&signer.key())],
         bump = marketplace.bumps.bump,
         constraint = signer.key() == marketplace.authority
             @ErrorCode::IncorrectAuthority,
@@ -29,13 +27,8 @@ pub struct AirdropAccess<'info> {
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         mut,
-        seeds = [
-            b"access_mint".as_ref(),
-            marketplace.key().as_ref(),
-        ],
+        seeds = [Marketplace::get_mint_seeds(&marketplace.key())],
         bump = marketplace.bumps.access_mint_bump,
-        constraint = access_mint.key() == marketplace.permission_config.access_mint
-            @ErrorCode::IncorrectMint
     )]    
     pub access_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
@@ -48,18 +41,17 @@ pub struct AirdropAccess<'info> {
     pub access_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
+    /// Enforcing token22 to make the access token non transferable
     #[account(address = TokenProgram2022 @ ErrorCode::IncorrectTokenProgram)]
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 pub fn handler<'info>(ctx: Context<AirdropAccess>) -> Result<()> {
-    let signer_key = ctx.accounts.signer.key();
-    let marketplace_seeds = &[
-        b"marketplace".as_ref(),
-        signer_key.as_ref(),
-        &[ctx.accounts.marketplace.bumps.bump],
-    ];
+    let signer_seeds = Marketplace::get_signer_seeds(
+        &ctx.accounts.marketplace.key(), 
+        ctx.accounts.marketplace.bumps.bump
+    );
 
     mint_to(
         CpiContext::new_with_signer(
@@ -69,7 +61,7 @@ pub fn handler<'info>(ctx: Context<AirdropAccess>) -> Result<()> {
                 to: ctx.accounts.access_vault.to_account_info(),
                 authority: ctx.accounts.marketplace.to_account_info(),
             },
-            &[&marketplace_seeds[..]],
+            signer_seeds,
         ),
         1
     ).map_err(|_| ErrorCode::MintToError)?;

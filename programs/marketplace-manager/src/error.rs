@@ -57,5 +57,5 @@ pub enum ErrorCode {
     #[msg("Optional account not provided")]
     OptionalAccountNotProvided,
     #[msg("You dont have the token that allows you to create products")]
-    NotInWithelist,
+    NotAllowed,
 }

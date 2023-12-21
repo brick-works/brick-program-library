@@ -14,10 +14,7 @@ pub struct InitRewardVault<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [
-            b"marketplace".as_ref(),
-            marketplace.authority.as_ref(),
-        ],
+        seeds = [Marketplace::get_seeds(&signer.key())],
         bump = marketplace.bumps.bump,
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
