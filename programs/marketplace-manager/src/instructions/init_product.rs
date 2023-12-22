@@ -1,6 +1,7 @@
 use {
     crate::state::*,
     crate::error::ErrorCode,
+    crate::utils::pda::*,
     anchor_lang::prelude::*,
     anchor_lang::system_program::System,
     anchor_spl::token_interface::{
@@ -10,28 +11,26 @@ use {
 };
 
 #[derive(Accounts)]
+#[instruction(id: [u8; 16])]
 pub struct InitProduct<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&signer.key()),
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         init,
         payer = signer,
         space = Product::SIZE,
-        seeds = [Product::get_seeds(&signer.key())],
-        bump,
+        address = get_product_address(&product.id),
     )]
     pub product: Box<Account<'info, Product>>,
     pub payment_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
         mut,
-        seeds = [Marketplace::get_mint_seeds(&marketplace.key())],
-        bump = marketplace.bumps.access_mint_bump,
+        address = get_access_mint_address(&marketplace.key()),
     )]    
     pub access_mint: Box<InterfaceAccount<'info, Mint>>,
     pub rent: Sysvar<'info, Rent>,
@@ -72,7 +71,6 @@ pub fn handler<'info>(
             payment_mint,
             product_price,
         },
-        ctx.bumps.product,
     )?;
 
     Ok(())

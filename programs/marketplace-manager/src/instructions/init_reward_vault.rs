@@ -1,6 +1,6 @@
 use {
     crate::state::*,
-    crate::error::ErrorCode,
+    crate::utils::pda::*,
     anchor_lang::prelude::*,
     anchor_spl::{
         associated_token::AssociatedToken,
@@ -13,25 +13,14 @@ pub struct InitRewardVault<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
-        mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&marketplace.authority),
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         mut,
-        seeds = [
-            b"reward".as_ref(),
-            signer.key().as_ref(),
-            marketplace.key().as_ref(),
-        ],
-        bump = reward.bump,
+        address = get_reward_address(&signer.key(), &marketplace.key()),
     )]
     pub reward: Account<'info, Reward>,
-    #[account(
-        constraint = reward_mint.key() == marketplace.rewards_config.reward_mint 
-            @ ErrorCode::IncorrectMint
-    )]
     pub reward_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
         init,

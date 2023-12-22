@@ -8,8 +8,12 @@ pub enum ErrorCode {
     StringTooLong,
     #[msg("Numerical Overflow happened")]
     NumericalOverflow,
-    #[msg("You are setting a higher fee than allowed")]
-    IncorrectFee,
+    #[msg("You are setting a higher fee value")]
+    InvalidFeeValue,
+    #[msg("You are setting a higher fee reduction value")]
+    InvalidFeeReductionValue,
+    #[msg("You are setting a higher reward value")]
+    InvalidRewardValue,
     #[msg("You are providing a wrong app account")]
     InconrrectAppAccount,
     #[msg("You are providing a wrong creator vault")]

@@ -1,5 +1,6 @@
 use {
     crate::state::*,
+    crate::utils::pda::*,
     crate::error::ErrorCode,
     anchor_lang::prelude::*,
     anchor_spl::{
@@ -14,8 +15,7 @@ pub struct InitBounty<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&signer.key()),
         constraint = signer.key() == marketplace.authority
             @ErrorCode::IncorrectAuthority
     )]
@@ -24,8 +24,7 @@ pub struct InitBounty<'info> {
     #[account(
         init,
         payer = signer,
-        seeds = [Marketplace::get_vault_seeds(&marketplace.key(), &reward_mint.key())],
-        bump,
+        address = get_bounty_address(&marketplace.key(), &reward_mint.key()),
         token::mint = reward_mint,
         token::authority = marketplace,
     )]

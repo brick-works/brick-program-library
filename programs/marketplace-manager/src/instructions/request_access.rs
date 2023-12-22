@@ -1,4 +1,5 @@
 use {
+    crate::utils::pda::*,
     crate::state::*,
     anchor_lang::prelude::*,
 };
@@ -9,32 +10,22 @@ pub struct RequestAccess<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [
-            b"marketplace".as_ref(),
-            marketplace.authority.as_ref(),
-        ],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&marketplace.authority)
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         init,
         payer = signer,
-        space = ACCESS_SIZE,
-        seeds = [
-            b"request".as_ref(),
-            signer.key().as_ref(),
-            marketplace.key().as_ref(),
-        ],
-        bump,
+        space = Reward::SIZE,
+        address = get_access_address(&signer.key(), &marketplace.key())
     )]
-    pub request: Account<'info, Access>,
+    pub request: Account<'info, AccessRequest>,
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
 }
 
 pub fn handler<'info>(ctx: Context<RequestAccess>) -> Result<()> {
-    (*ctx.accounts.request).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.request).bump = ctx.bumps.request;
+    (*ctx.accounts.request).payer = ctx.accounts.signer.key();
     
     Ok(())
 }

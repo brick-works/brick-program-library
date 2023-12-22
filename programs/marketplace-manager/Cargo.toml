@@ -18,8 +18,5 @@ default = []
 [dependencies]
 anchor-lang.workspace = true
 anchor-spl.workspace = true
-spl-account-compression.workspace = true
 spl-token-2022.workspace = true
 spl-token.workspace = true
-bubblegum-cpi.workspace = true
-solana-program.workspace = true

@@ -1,6 +1,7 @@
 use {
     crate::state::*,
     crate::error::ErrorCode,
+    crate::utils::pda::*,
     anchor_lang::prelude::*,
     anchor_spl::token::{transfer, Transfer},
     anchor_spl::token_interface::{Mint, TokenInterface, TokenAccount}
@@ -10,23 +11,11 @@ use {
 pub struct WithdrawReward<'info> { 
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [
-            b"marketplace".as_ref(),
-            marketplace.authority.as_ref(),
-        ],
-        bump = marketplace.bumps.bump,
-    )]
+    #[account(address = get_marketplace_address(&signer.key()))]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         mut,
-        seeds = [
-            b"reward".as_ref(),
-            signer.key().as_ref(),
-            marketplace.key().as_ref(),
-        ],
-        bump = reward.bump,
+        address = get_reward_address(&signer.key(), &marketplace.key()),
         constraint = signer.key() == reward.authority @ ErrorCode::IncorrectAuthority
     )]
     pub reward: Account<'info, Reward>,
@@ -49,10 +38,6 @@ pub struct WithdrawReward<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<WithdrawReward>) -> Result<()> {
-    if ctx.accounts.marketplace.rewards_config.rewards_enabled {
-        return Err(ErrorCode::OpenPromotion.into());
-    } 
-
     let signer_key = ctx.accounts.signer.key().to_bytes();
     let marketplace_key = ctx.accounts.marketplace.key().to_bytes();
     let seeds = &[

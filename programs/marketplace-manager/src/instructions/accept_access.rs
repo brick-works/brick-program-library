@@ -1,6 +1,7 @@
 use {
-    crate::state::*,
+    crate::state::{Marketplace, AccessRequest},
     crate::error::ErrorCode,
+    crate::utils::pda::*,
     anchor_lang::prelude::*,
     anchor_spl::{
         token_2022::mint_to,
@@ -20,23 +21,20 @@ pub struct AcceptAccess<'info> {
     pub requestor: SystemAccount<'info>,
     #[account(
         mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&signer.key()),
         constraint = signer.key() == marketplace.authority
             @ErrorCode::IncorrectAuthority,
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         mut,
-        seeds = [AccessRequest::get_seeds(&requestor.key(), &marketplace.key())],
-        bump = access_request.bump,
+        address = get_access_address(&requestor.key(), &marketplace.key()),
         close = requestor,
     )]
     pub access_request: Account<'info, AccessRequest>,
     #[account(
         mut,
-        seeds = [Marketplace::get_mint_seeds(&marketplace.key())],
-        bump = marketplace.bumps.access_mint_bump,
+        address = get_access_mint_address(&marketplace.key()),
     )]
     pub access_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
@@ -56,10 +54,11 @@ pub struct AcceptAccess<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<AcceptAccess>) -> Result<()> {
-    let signer_seeds = Marketplace::get_signer_seeds(
-        &ctx.accounts.marketplace.key(), 
-        ctx.accounts.marketplace.bumps.bump
-    );
+    let marketplace_seeds = &[
+        "marketplace".as_ref(),
+        ctx.accounts.marketplace.authority.as_ref(),
+        &[ctx.accounts.marketplace.bumps.bump],
+    ];
 
     mint_to(
         CpiContext::new_with_signer(
@@ -69,10 +68,10 @@ pub fn handler<'info>(ctx: Context<AcceptAccess>) -> Result<()> {
                 to: ctx.accounts.access_vault.to_account_info(),
                 authority: ctx.accounts.marketplace.to_account_info(),
             },
-            signer_seeds,
+            &[&marketplace_seeds[..]],
         ),
         1
-    ).map_err(|_| ErrorCode::MintToError)?;
+    )?;
     
     Ok(())
 }

@@ -1,5 +1,6 @@
 use {
     crate::state::*,
+    crate::utils::pda::*,
     crate::error::ErrorCode,
     anchor_lang::prelude::*,
     anchor_spl::token_interface::Mint
@@ -11,16 +12,14 @@ pub struct EditProduct<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [Product::get_seeds(&signer.key())],
-        bump = product.bump,
+        address = get_product_address(&product.id),
         constraint = signer.key() == product.authority 
             @ ErrorCode::IncorrectAuthority,
     )]
     pub product: Box<Account<'info, Product>>,
     #[account(
         mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&signer.key()),
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     /// CHECK: no need to validate, seller is the unique wallet who can call this instruction

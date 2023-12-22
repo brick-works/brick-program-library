@@ -2,14 +2,15 @@ pub mod utils;
 pub mod error;
 pub mod instructions;
 pub mod state;
-use anchor_lang::prelude::*;
-use instructions::*;
-use state::*;
 
-declare_id!("brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF");
+use state::*;
+use instructions::*;
+use anchor_lang::prelude::*;
+pub use marketplace_manager::ID as MARKETPLACE_PROGRAM;
 
 #[program]
 pub mod marketplace_manager {
+    declare_id!("brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF");
     use super::*;
 
     /// airdrop a token that allows users to create products in a specific marketplace

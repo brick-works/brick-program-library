@@ -1,5 +1,6 @@
 use {
     crate::state::*,
+    crate::utils::pda::get_marketplace_address,
     crate::error::ErrorCode,
     anchor_lang::prelude::*,
 };
@@ -10,8 +11,7 @@ pub struct EditMarketplace<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
+        address = get_marketplace_address(&signer.key()),
         constraint = signer.key() == marketplace.authority 
             @ ErrorCode::IncorrectAuthority,
     )]
@@ -23,13 +23,15 @@ pub fn handler<'info>(
     fees_config: Option<FeesConfig>,
     rewards_config: Option<RewardsConfig>,
 ) -> Result<()> {
+    ctx.accounts.marketplace.fees_config = fees_config.clone();
+    ctx.accounts.marketplace.rewards_config = rewards_config.clone();
+    
     if fees_config.is_some() {
-        let fees: FeesConfig = fees_config.unwrap();
-        Marketplace::validate_fees(&fees)?;
+        ctx.accounts.marketplace.validate_fees()?;
     }
-
-    ctx.accounts.marketplace.fees_config = fees_config;
-    ctx.accounts.marketplace.rewards_config = rewards_config;
+    if rewards_config.is_some() {
+        ctx.accounts.marketplace.validate_rewards()?;
+    }
 
     Ok(())
 }

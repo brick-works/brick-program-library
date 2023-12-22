@@ -18,13 +18,13 @@ use {
 };
 
 pub fn mint_builder<'info>(
-    mint_seeds: &[&[&[u8]]],
-    mint_authority_seeds: &[&[&[u8]]],
+    mint_seeds: &[&[u8]],
+    mint_authority_seeds: &[&[u8]; 3],
     extensions: Vec<ExtensionType>,
     mint: AccountInfo<'info>,
     mint_authority: AccountInfo<'info>,
     signer: AccountInfo<'info>,
-    rent: Sysvar<'_, Rent>,
+    rent: Sysvar<'info, Rent>,
     system_program: AccountInfo<'info>,
     token_program: AccountInfo<'info>,
 ) -> std::result::Result<(), ErrorCode> {
@@ -37,9 +37,6 @@ pub fn mint_builder<'info>(
             .sum()
     };
 
-    let signer_mint_seeds = mint_seeds;
-    let signer_mint_authority_seeds = mint_authority_seeds;
-
     create_account(
         CpiContext::new_with_signer(
             system_program,
@@ -47,7 +44,7 @@ pub fn mint_builder<'info>(
                 from: signer.clone(),
                 to: mint.clone(),
             },
-            signer_mint_seeds,
+            &[&mint_seeds[..]],
         ),
         rent.minimum_balance(space),
         space as u64,
@@ -65,7 +62,7 @@ pub fn mint_builder<'info>(
                     )
                     .map_err(|_| ErrorCode::TransferError)?,
                     &[mint_authority.clone(), mint.clone()],
-                    signer_mint_seeds,
+                    &[&mint_seeds[..]],
                 )
                 .map_err(|_| ErrorCode::MintExtensionError)?;
             }
@@ -82,7 +79,7 @@ pub fn mint_builder<'info>(
                 mint,
                 rent: rent.to_account_info(),
             },
-            &[&signer_mint_seeds[..], &signer_mint_authority_seeds[..]].concat(),
+            &[&mint_seeds[..], &mint_authority_seeds[..]],
         ),
         0,
         &mint_authority.key(),

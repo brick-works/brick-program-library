@@ -1,5 +1,6 @@
 use {
     crate::state::*,
+    crate::utils::pda::*,
     anchor_lang::prelude::*,
     anchor_spl::token_interface::{Mint, TokenInterface, TokenAccount}
 };
@@ -8,16 +9,12 @@ use {
 pub struct InitReward<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump = marketplace.bumps.bump,
-    )]
+    #[account(address = get_marketplace_address(&marketplace.key()))]
     pub marketplace: Box<Account<'info, Marketplace>>,
     #[account(
         init,
         payer = signer,
-        space = REWARD_SIZE,
+        space = Reward::SIZE,
         seeds = [
             b"reward".as_ref(),
             signer.key().as_ref(),
@@ -47,8 +44,8 @@ pub struct InitReward<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<InitReward>) -> Result<()> {
-    (*ctx.accounts.reward).authority = ctx.accounts.signer.key();
-    (*ctx.accounts.reward).bump = ctx.bumps.reward;
-    
+    ctx.accounts.reward.authority = ctx.accounts.signer.key();
+    ctx.accounts.reward.bump = ctx.bumps.reward;
+
     Ok(())
 }

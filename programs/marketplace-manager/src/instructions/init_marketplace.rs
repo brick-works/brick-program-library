@@ -1,15 +1,12 @@
 use {
     crate::state::*,
     anchor_lang::prelude::*,
+    crate::utils::pda::*,
     crate::error::ErrorCode,
     crate::utils::mint_builder,
     spl_token_2022::extension::ExtensionType,
     anchor_spl::{
-        token_interface::{
-            Mint, 
-            TokenAccount, 
-            TokenInterface
-        },
+        token_interface::TokenInterface,
         token_2022::ID as TokenProgram2022,
     },
 };
@@ -22,25 +19,19 @@ pub struct InitMarketplace<'info> {
         init,
         payer = signer,
         space = Marketplace::SIZE,
-        seeds = [Marketplace::get_seeds(&signer.key())],
-        bump,
+        address = get_marketplace_address(&signer.key()),
+        // included to be the bump available in the context
+        // needed to be on-chain to sign with the pda
+        seeds = [b"marketplace".as_ref(), signer.key().as_ref()],
+        bump
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     /// CHECK: this mint is init in the ix handler
-    #[account(mut)]  
-    pub access_mint: UncheckedAccount<'info>,
-    pub reward_mint: Box<InterfaceAccount<'info, Mint>>,
-    pub discount_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
-        init,
-        payer = signer,
-        seeds = [Marketplace::get_vault_seeds(&marketplace.key(), &reward_mint.key())],
-        bump,
-        token::mint = reward_mint,
-        token::authority = marketplace,
-        token::token_program = token_program,
-    )]
-    pub bounty_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+        mut,
+        address = get_access_address(&signer.key(), &marketplace.key()),
+    )]  
+    pub access_mint: UncheckedAccount<'info>,
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     /// Enforcing token22 to make the access token non transferable
@@ -55,12 +46,8 @@ pub fn handler<'info>(
     fees_config: Option<FeesConfig>,
     rewards_config: Option<RewardsConfig>,
 ) -> Result<()> {
-    if fees_config.is_some() {
-        let fees: FeesConfig = fees_config.unwrap();
-        Marketplace::validate_fees(&fees)?;
-    }
-
     let authority = ctx.accounts.signer.key();
+    let marketplace_key = ctx.accounts.marketplace.key();
     let access_mint = Some(ctx.accounts.access_mint.key());
     let bumps = MarketplaceBumps {
         bump: ctx.bumps.marketplace,
@@ -75,19 +62,28 @@ pub fn handler<'info>(
         rewards_config,
     )?;
 
+    if ctx.accounts.marketplace.fees_config.is_some() {
+        ctx.accounts.marketplace.validate_fees()?;
+    }
+    if ctx.accounts.marketplace.rewards_config.is_some() {
+        ctx.accounts.marketplace.validate_rewards()?;
+    }
+
     let extensions: Vec<ExtensionType> = vec![ExtensionType::NonTransferable];
-    let signer_mint_authority_seeds: &[&[&[u8]]] = Marketplace::get_signer_seeds(
-        &authority, 
-        ctx.accounts.marketplace.bumps.bump
-    );
-    let signer_mint_seeds: &[&[&[u8]]] = Marketplace::get_mint_signer_seeds(
-        &ctx.accounts.marketplace.key(), 
-        access_mint_bump
-    );
+    let mint_seeds: &[&[u8]] = &[
+        b"access_mint",
+        marketplace_key.as_ref(),
+        &[access_mint_bump]
+    ];
+    let marketplace_seeds = &[
+        b"marketplace".as_ref(),
+        ctx.accounts.marketplace.authority.as_ref(),
+        &[ctx.accounts.marketplace.bumps.bump],
+    ];
 
     mint_builder(
-        signer_mint_seeds,
-        signer_mint_authority_seeds,
+        mint_seeds,
+        marketplace_seeds,
         extensions,
         ctx.accounts.access_mint.to_account_info(),
         ctx.accounts.marketplace.to_account_info(),
