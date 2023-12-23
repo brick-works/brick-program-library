@@ -16,7 +16,7 @@ pub struct RequestAccess<'info> {
     #[account(
         init,
         payer = signer,
-        space = Reward::SIZE,
+        space = AccessRequest::SIZE,
         address = get_access_address(&signer.key(), &marketplace.key())
     )]
     pub request: Account<'info, AccessRequest>,
@@ -25,7 +25,7 @@ pub struct RequestAccess<'info> {
 }
 
 pub fn handler<'info>(ctx: Context<RequestAccess>) -> Result<()> {
-    (*ctx.accounts.request).payer = ctx.accounts.signer.key();
+    ctx.accounts.request.payer = ctx.accounts.signer.key();
     
     Ok(())
 }

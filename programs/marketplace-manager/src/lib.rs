@@ -66,24 +66,9 @@ pub mod marketplace_manager {
     ) -> Result<()> {
         init_product::handler(ctx, id, product_price)
     }
-
-    /// if a marketplace wants to change the reward mint, sellers and buyers have to create a new vault
-    /// because there is only one PDA, reward is the authority of these vaults
-    pub fn init_reward_vault(ctx: Context<InitRewardVault>) -> Result<()> {
-        init_reward_vault::handler(ctx)
-    }
-    
-    pub fn init_reward(ctx: Context<InitReward>) -> Result<()> {
-        init_reward::handler(ctx)
-    }
     
     /// manages the transfers (buyer -> seller and fees to marketplace authority)
     pub fn register_buy(ctx: Context<RegisterBuy>, amount: u32) -> Result<()> {
         register_buy::handler(ctx, amount)
-    }
-
-    /// when promotion is ended users can withdraw the funds stored in the vaults, managed by the reward PDA
-    pub fn withdraw_reward(ctx: Context<WithdrawReward>) -> Result<()> {
-        withdraw_reward::handler(ctx)
     }
 }

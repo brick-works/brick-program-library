@@ -1,11 +1,10 @@
-use spl_token_2022::cmp_pubkeys;
-
 use {
     std::mem::size_of,
     crate::error::ErrorCode,
     crate::state::*,
     anchor_lang::prelude::*,   
-    anchor_spl::token::{transfer_checked, TransferChecked} 
+    anchor_spl::token::{transfer_checked, TransferChecked},
+    spl_token_2022::cmp_pubkeys
 };
 
 /// This account works as an product administrator
@@ -80,7 +79,7 @@ impl Product {
         amount: u64,
         decimals: u8,
     ) -> Result<()> {
-        let (total_fee, seller_amount) =
+        let (market_amount, seller_amount) =
             Product::calculate_transfer_distribution(fees_config, payment_mint, amount)?;
     
         transfer_checked(
@@ -93,7 +92,7 @@ impl Product {
                     authority: signer.clone(),
                 },
             ),
-            total_fee,
+            market_amount,
             decimals,
         )?;
 

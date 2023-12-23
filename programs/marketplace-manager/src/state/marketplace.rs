@@ -1,5 +1,6 @@
 use std::mem::size_of;
 use anchor_lang::prelude::*;
+use anchor_spl::token::{transfer_checked, TransferChecked};
 use spl_token_2022::cmp_pubkeys;
 use crate::error::ErrorCode;
 
@@ -100,15 +101,6 @@ impl Marketplace {
         Ok(())
     }
 
-    pub fn is_rewards_active(&self, payment_mint: &Pubkey) -> bool {
-        self.rewards_config
-            .as_ref()
-            .map_or(false, |config| {
-                config.reward_mint
-                    .map_or(true, |enforced_mint| cmp_pubkeys(&enforced_mint, payment_mint))
-            })
-    }
-    
     pub fn validate_access(
         on_chain_mint: &Pubkey, 
         input_mint: &Pubkey,
@@ -120,5 +112,92 @@ impl Marketplace {
             return false;
         }
         true
+    }
+
+    pub fn is_rewards_active(&self, payment_mint: &Pubkey) -> bool {
+        self.rewards_config
+            .as_ref()
+            .map_or(false, |config| {
+                config.reward_mint
+                    .map_or(true, |enforced_mint| cmp_pubkeys(&enforced_mint, payment_mint))
+            })
+    }
+
+    pub fn calculate_bonus(
+        rewards_percentage: u16,
+        product_price: u64,
+    ) -> Result<u64> {
+        let bonus = (rewards_percentage as u128)
+            .checked_mul(product_price as u128)
+            .ok_or(ErrorCode::NumericalOverflow)?
+            .checked_div(10000)
+            .ok_or(ErrorCode::NumericalOverflow)? as u64;
+        Ok(bonus)
+    }
+    
+    pub fn validate_vault(vault_owner: Pubkey, proof: Pubkey) -> bool {
+        vault_owner == proof
+    }
+    
+    pub fn transfer_bonus<'info>(
+        &self,
+        from: AccountInfo<'info>,
+        mint: AccountInfo<'info>,
+        seller: AccountInfo<'info>,
+        buyer: AccountInfo<'info>,
+        authority: AccountInfo<'info>,
+        token_program: AccountInfo<'info>,
+        product_price: u64,
+        decimals: u8,
+    ) -> Result<()> {
+        let marketplace_seeds = &[
+            b"marketplace".as_ref(),
+            self.authority.as_ref(),
+            &[self.bumps.bump],
+        ];
+
+        let buyer_bonus = Marketplace::calculate_bonus(
+            self.rewards_config.as_ref().unwrap().buyer_reward, 
+            product_price
+        )?;
+        if buyer_bonus > 0 {
+            transfer_checked(
+                CpiContext::new_with_signer(
+                    token_program.clone(),
+                    TransferChecked {
+                        from: from.clone(),
+                        mint: mint.clone(),
+                        to: buyer,
+                        authority: authority.clone(),
+                    },
+                    &[&marketplace_seeds[..]],
+                ),
+                buyer_bonus,
+                decimals,
+            )?;
+        }
+
+        let seller_bonus = Marketplace::calculate_bonus(
+            self.rewards_config.as_ref().unwrap().seller_reward, 
+            product_price
+        )?;
+        if seller_bonus > 0 {
+            transfer_checked(
+                CpiContext::new_with_signer(
+                    token_program,
+                    TransferChecked {
+                        from,
+                        mint,
+                        to: seller,
+                        authority,
+                    },
+                    &[&marketplace_seeds[..]],
+                ),
+                seller_bonus,
+                decimals,
+            )?;
+        }
+    
+        Ok(())
     }
 }
