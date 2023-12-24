@@ -1,8 +1,10 @@
 import { AnchorProvider, web3 } from "@coral-xyz/anchor";
+import { ConfirmOptions } from "@solana/web3.js";
 
 export const createFundedWallet = async (
   provider: AnchorProvider,
-  amount: number
+  amount: number,
+  confirmOptions: ConfirmOptions,
 ): Promise<web3.Keypair> => {
   const user = new web3.Keypair();
 
@@ -13,7 +15,9 @@ export const createFundedWallet = async (
         toPubkey: user.publicKey,
         lamports: amount * web3.LAMPORTS_PER_SOL,
       })
-    )
+    ),
+    null,
+    confirmOptions
   );
 
   return user;

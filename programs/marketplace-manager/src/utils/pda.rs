@@ -57,14 +57,3 @@ pub fn get_product_address(product_id: &[u8; 16]) -> Pubkey {
         &MARKETPLACE_PROGRAM
     )
 }
-
-pub fn get_reward_address(authority: &Pubkey, marketplace: &Pubkey) -> Pubkey {
-    get_address(
-        &[
-            b"reward".as_ref(),
-            authority.as_ref(),
-            marketplace.as_ref(),
-        ],
-        &MARKETPLACE_PROGRAM
-    )
-}

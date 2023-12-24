@@ -1,5 +1,4 @@
 use {
-    std::mem::size_of,
     crate::error::ErrorCode,
     crate::state::*,
     anchor_lang::prelude::*,   
@@ -26,7 +25,7 @@ pub struct SellerConfig {
 }
 
 impl Product {
-    pub const SIZE: usize = 8 + size_of::<Product>();
+    pub const SIZE: usize = 8 + 32 + 16 + 32 + 8;
 
     pub fn initialize(
         &mut self, 

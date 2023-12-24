@@ -1,4 +1,3 @@
-use std::mem::size_of;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer_checked, TransferChecked};
 use spl_token_2022::cmp_pubkeys;
@@ -59,7 +58,13 @@ pub struct RewardsConfig {
 }
 
 impl Marketplace {
-    pub const SIZE: usize = 8 + size_of::<Marketplace>();
+    // optional properties needs one more byte (Borsh uses 1 extra byte to serialize options)
+    pub const SIZE: usize = 8 
+        + 32 //authority
+        + 1 + 1 // bumps
+        + 1 + 32 // access_mint
+        + 1 + 2 + 1 + 1 + 32 + 1 + 2 // fees
+        + 1 + 2 + 2 + 1 + 32; // rewards
 
     pub fn initialize(
         &mut self,

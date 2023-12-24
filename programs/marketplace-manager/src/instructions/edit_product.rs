@@ -17,11 +17,6 @@ pub struct EditProduct<'info> {
             @ ErrorCode::IncorrectAuthority,
     )]
     pub product: Box<Account<'info, Product>>,
-    #[account(
-        mut,
-        address = get_marketplace_address(&signer.key()),
-    )]
-    pub marketplace: Box<Account<'info, Marketplace>>,
     /// CHECK: no need to validate, seller is the unique wallet who can call this instruction
     pub payment_mint: Box<InterfaceAccount<'info, Mint>>,
 }

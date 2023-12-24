@@ -8,7 +8,7 @@ use {
     }
 };
 
-declare_id!("6NSfzFwHeuDCLzFwAo3yQ2KLLb9bThvkEVyeWChoAqBa");
+declare_id!("5SEgBUmoD6eMxbiD2hwNwFKXPj2cU6YtddZnC3DwiCDs");
 
 #[program]
 pub mod product_manager {

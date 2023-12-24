@@ -6,7 +6,7 @@ use {
     instructions::*,
 };
 
-declare_id!("BHQvQgoMZhCKuVeoVhsy8agZQYwMuvzXwrEYoEHHDgGJ");
+declare_id!("GGN4agBuV678P2M8SVJeEjeLU4maf7Rb7NH1ASMpV136");
 
 #[program]
 pub mod tender {

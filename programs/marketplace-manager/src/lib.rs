@@ -10,7 +10,7 @@ pub use marketplace_manager::ID as MARKETPLACE_PROGRAM;
 
 #[program]
 pub mod marketplace_manager {
-    declare_id!("brick5uEiJqSkfuAvMtKmq7kiuEVmbjVMiigyV51GRF");
+    declare_id!("4GfNEbxCR7H49CpyJmrBsbZauvFhyviJXbKRZGKpNqVp");
     use super::*;
 
     /// airdrop a token that allows users to create products in a specific marketplace

@@ -1,7 +1,6 @@
 use {
     crate::state::*,
     anchor_lang::prelude::*,
-    crate::utils::pda::*,
     crate::error::ErrorCode,
     crate::utils::mint_builder,
     spl_token_2022::extension::ExtensionType,
@@ -19,7 +18,6 @@ pub struct InitMarketplace<'info> {
         init,
         payer = signer,
         space = Marketplace::SIZE,
-        address = get_marketplace_address(&signer.key()),
         // included to be the bump available in the context
         // needed to be on-chain to sign with the pda
         seeds = [b"marketplace".as_ref(), signer.key().as_ref()],
@@ -27,10 +25,7 @@ pub struct InitMarketplace<'info> {
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
     /// CHECK: this mint is init in the ix handler
-    #[account(
-        mut,
-        address = get_access_address(&signer.key(), &marketplace.key()),
-    )]  
+    #[account(mut)]  
     pub access_mint: UncheckedAccount<'info>,
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
