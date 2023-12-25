@@ -18,12 +18,15 @@ pub struct RegisterBuy<'info> {
     /// CHECK: Marketplace is mut because signs sending rewards
     #[account(
         mut,
-        address = get_marketplace_address(&signer.key()),
-        constraint = marketplace_authority.key() == marketplace.authority 
+        address = get_marketplace_address(&marketplace.authority),
+        constraint = marketplace.key() == product.marketplace 
             @ ErrorCode::IncorrectAuthority
     )]
     pub marketplace: Box<Account<'info, Marketplace>>,
-    #[account(address = get_product_address(&product.id))]
+    #[account(
+        address = get_product_address(&marketplace.key(), &product.id),
+        has_one = marketplace
+    )]
     pub product: Box<Account<'info, Product>>,
     #[account(
         constraint = payment_mint.key() == product.seller_config.payment_mint
@@ -46,20 +49,13 @@ pub struct RegisterBuy<'info> {
             @ ErrorCode::IncorrectATA,
     )]
     pub seller_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-    /// ATA that receives fees
-    /// in case it does not exist, the user will pay for that
-    /// discourages the use of unusual tokens
+
+    /// ATA that receives fees, should be init before allowing sellers to receive payments with specific mints
     #[account(
-        init_if_needed,
-        payer = signer,
-        token::mint = payment_mint,
-        token::authority = marketplace_authority,
-        token::token_program = token_program,
+        mut,
+        constraint = marketplace_vault.owner == marketplace.authority
     )]
-    pub marketplace_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-    /// included to create ata if needed (validated in the marketplace account)
-    #[account(mut)]
-    pub marketplace_authority: SystemAccount<'info>,
+    pub marketplace_vault: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
     
     /// Note: Reward Mint has to be equal to Payment Mint for decimals and amount consistency
     /// if you are not going to use the reward feat provide bounty_vault as null
@@ -77,11 +73,13 @@ pub fn handler<'info>(ctx: Context<RegisterBuy>, amount: u32) -> Result<()> {
         .checked_mul(amount.into()).ok_or(ErrorCode::NumericalOverflow)?;
 
     if let Some(fees_config) = &ctx.accounts.marketplace.fees_config {
+        let marketplace_vault = ctx.accounts.marketplace_vault.as_ref().ok_or(ErrorCode::OptionalAccountNotProvided)?;
+
         Product::do_fee_payment(
             ctx.accounts.signer.to_account_info(),
             ctx.accounts.buyer_vault.to_account_info(),
             ctx.accounts.seller_vault.to_account_info(),
-            ctx.accounts.marketplace_vault.to_account_info(),
+            marketplace_vault.to_account_info(),
             ctx.accounts.payment_mint.to_account_info(),
             ctx.accounts.token_program.to_account_info(),
             fees_config.clone(),

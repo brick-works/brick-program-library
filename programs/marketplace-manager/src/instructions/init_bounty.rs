@@ -24,7 +24,12 @@ pub struct InitBounty<'info> {
     #[account(
         init,
         payer = signer,
-        address = get_bounty_address(&marketplace.key(), &reward_mint.key()),
+        seeds = [
+            b"bounty_vault".as_ref(),
+            marketplace.key().as_ref(),
+            reward_mint.key().as_ref(),
+        ],
+        bump,
         token::mint = reward_mint,
         token::authority = marketplace,
     )]

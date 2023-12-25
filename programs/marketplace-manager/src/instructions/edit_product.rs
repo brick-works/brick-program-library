@@ -12,7 +12,7 @@ pub struct EditProduct<'info> {
     pub signer: Signer<'info>,
     #[account(
         mut,
-        address = get_product_address(&product.id),
+        address = get_product_address(&product.marketplace, &product.id),
         constraint = signer.key() == product.authority 
             @ ErrorCode::IncorrectAuthority,
     )]

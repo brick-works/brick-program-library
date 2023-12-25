@@ -26,6 +26,7 @@ pub struct InitProduct<'info> {
         space = Product::SIZE,
         seeds = [
             b"product".as_ref(),
+            marketplace.key().as_ref(),
             id.as_ref(),
         ],
         bump
@@ -68,9 +69,11 @@ pub fn handler<'info>(
     }
 
     let authority = ctx.accounts.signer.key();
+    let marketplace = ctx.accounts.marketplace.key();
     let payment_mint = ctx.accounts.payment_mint.key();
     ctx.accounts.product.initialize(
         authority,
+        marketplace,
         id,
         SellerConfig {
             payment_mint,

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{transfer_checked, TransferChecked};
 use spl_token_2022::cmp_pubkeys;
-use crate::error::ErrorCode;
+use crate::{error::ErrorCode, event::BonusEvent};
 
 /// This account represents a marketplace with associated transaction fees and reward configurations.
 /// The account is controlled by an authority that can modify the fee and reward configurations.
@@ -34,7 +34,7 @@ pub struct FeesConfig {
     /// The entity that pays the transaction fees (either the buyer or the seller).
     pub fee_payer: PaymentFeePayer,
     pub discount_mint: Option<Pubkey>,
-    /// Fee reduction percentage applied if the seller chooses to receive a specific token as payment.
+    /// Fee reduction in absolute terms (ie fee 5% and reduction 2 value = total fee 3%)
     pub fee_reduction: Option<u16>,
 }
 
@@ -46,15 +46,14 @@ pub enum PaymentFeePayer {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct RewardsConfig {
+    /// The marketplace will only give rewards if the payment is made with this specific mint.
+    pub reward_mint: Pubkey,
     /// The transaction volume percentage that the seller receives as a reward on a sale.
     /// A value of 250 corresponds to a reward of 2.5% of the transaction volume.
     /// A value of 0 indicates that there is no active rewards for the seller.
     pub seller_reward: u16,
     /// The transaction volume percentage that the buyer receives as a reward on a sale.
     pub buyer_reward: u16,
-    /// If set, the marketplace will only give rewards if the payment is made with this specific mint.
-    /// To enable rewards irrespective of payment mint, set this value to default pubkey.
-    pub reward_mint: Option<Pubkey>,
 }
 
 impl Marketplace {
@@ -89,7 +88,7 @@ impl Marketplace {
         }
     
         if let Some(fee_reduction) = fees_config.fee_reduction {
-            if fee_reduction > 1000 {
+            if fee_reduction > 10000 || fee_reduction > fees_config.fee {
                 return Err(ErrorCode::InvalidFeeReductionValue.into());
             }
         }
@@ -119,14 +118,15 @@ impl Marketplace {
         true
     }
 
+    pub fn validate_vault(vault_owner: Pubkey, proof: Pubkey) -> bool {
+        vault_owner == proof
+    }
+
     pub fn is_rewards_active(&self, payment_mint: &Pubkey) -> bool {
         self.rewards_config
             .as_ref()
-            .map_or(false, |config| {
-                config.reward_mint
-                    .map_or(true, |enforced_mint| cmp_pubkeys(&enforced_mint, payment_mint))
-            })
-    }
+            .map_or(false, |rewards_config| cmp_pubkeys(&rewards_config.reward_mint, payment_mint))
+    }    
 
     pub fn calculate_bonus(
         rewards_percentage: u16,
@@ -138,10 +138,6 @@ impl Marketplace {
             .checked_div(10000)
             .ok_or(ErrorCode::NumericalOverflow)? as u64;
         Ok(bonus)
-    }
-    
-    pub fn validate_vault(vault_owner: Pubkey, proof: Pubkey) -> bool {
-        vault_owner == proof
     }
     
     pub fn transfer_bonus<'info>(
@@ -172,7 +168,7 @@ impl Marketplace {
                     TransferChecked {
                         from: from.clone(),
                         mint: mint.clone(),
-                        to: buyer,
+                        to: buyer.clone(),
                         authority: authority.clone(),
                     },
                     &[&marketplace_seeds[..]],
@@ -180,6 +176,12 @@ impl Marketplace {
                 buyer_bonus,
                 decimals,
             )?;
+
+            emit!(BonusEvent {
+                receiver: buyer.key().to_string(),
+                mint: mint.key().to_string(),
+                amount: buyer_bonus,
+            });
         }
 
         let seller_bonus = Marketplace::calculate_bonus(
@@ -192,8 +194,8 @@ impl Marketplace {
                     token_program,
                     TransferChecked {
                         from,
-                        mint,
-                        to: seller,
+                        mint: mint.clone(),
+                        to: seller.clone(),
                         authority,
                     },
                     &[&marketplace_seeds[..]],
@@ -201,6 +203,12 @@ impl Marketplace {
                 seller_bonus,
                 decimals,
             )?;
+
+            emit!(BonusEvent {
+                receiver: seller.key().to_string(),
+                mint: mint.key().to_string(),
+                amount: buyer_bonus,
+            });
         }
     
         Ok(())

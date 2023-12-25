@@ -48,10 +48,11 @@ pub fn get_bounty_address(marketplace: &Pubkey, reward: &Pubkey) -> Pubkey {
     )
 }
 
-pub fn get_product_address(product_id: &[u8; 16]) -> Pubkey {
+pub fn get_product_address(marketplace: &Pubkey, product_id: &[u8; 16]) -> Pubkey {
     get_address(
         &[
             b"product".as_ref(),
+            marketplace.as_ref(),
             product_id.as_ref(),
         ],
         &MARKETPLACE_PROGRAM

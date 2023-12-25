@@ -11,6 +11,7 @@ use {
 pub struct Product {
     /// The seller's public key, who owns the product.
     pub authority: Pubkey,
+    pub marketplace: Pubkey,
     pub id: [u8; 16],
     /// Seller-defined product configurations.
     pub seller_config: SellerConfig,
@@ -25,15 +26,17 @@ pub struct SellerConfig {
 }
 
 impl Product {
-    pub const SIZE: usize = 8 + 32 + 16 + 32 + 8;
+    pub const SIZE: usize = 8 + 32 + 32 + 16 + 32 + 8;
 
     pub fn initialize(
         &mut self, 
         authority: Pubkey, 
+        marketplace: Pubkey,
         id: [u8; 16],
         seller_config: SellerConfig, 
     ) -> Result<()> {
         self.authority = authority;
+        self.marketplace = marketplace;
         self.id = id;
         self.seller_config = seller_config;
 
