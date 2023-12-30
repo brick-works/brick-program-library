@@ -9,7 +9,7 @@ use {
 /// This account works as an product administrator
 #[account]
 pub struct Product {
-    /// The seller's public key, who owns the product.
+    /// Seller
     pub authority: Pubkey,
     pub marketplace: Pubkey,
     pub id: [u8; 16],
@@ -19,9 +19,7 @@ pub struct Product {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct SellerConfig {
-    /// The token seller selects to receive as payment.
     pub payment_mint: Pubkey,
-    /// The product price in terms of payment token/mint.
     pub product_price: u64,
 }
 
@@ -116,7 +114,7 @@ impl Product {
     }    
     
     /// Calculates the distribution of the token amount, considering transaction fee and potential fee reduction.
-    /// Adjusts the fee if the payment mint is the same as the reward mint.
+    /// Adjusts the fee if the payment mint is the same as the discount mint.
     /// Also is considered fee_payer decided by the marketplace.
     fn calculate_transfer_distribution(
         fees: FeesConfig,

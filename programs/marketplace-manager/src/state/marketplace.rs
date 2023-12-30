@@ -13,8 +13,6 @@ pub struct Marketplace {
     pub bumps: MarketplaceBumps,
     /// If enabled, sellers need at least one token of this mint to list a product in your marketplace.
     pub access_mint: Option<Pubkey>,
-    /// This mint reduces the fee & can make the rewards to be enforced to a unique mint.
-    /// so you can incentive transactions with your own token
     pub fees_config: Option<FeesConfig>,
     pub rewards_config: Option<RewardsConfig>,
 }
@@ -33,6 +31,8 @@ pub struct FeesConfig {
     pub fee: u16,
     /// The entity that pays the transaction fees (either the buyer or the seller).
     pub fee_payer: PaymentFeePayer,
+    /// This mint reduces the fee & can make the rewards to be enforced to a unique mint.
+    /// so you can incentive transactions with your own token
     pub discount_mint: Option<Pubkey>,
     /// Fee reduction in absolute terms (ie fee 5% and reduction 2 value = total fee 3%)
     pub fee_reduction: Option<u16>,
@@ -129,10 +129,10 @@ impl Marketplace {
     }    
 
     pub fn calculate_bonus(
-        rewards_percentage: u16,
+        bonus_rate: u16,
         product_price: u64,
     ) -> Result<u64> {
-        let bonus = (rewards_percentage as u128)
+        let bonus = (bonus_rate as u128)
             .checked_mul(product_price as u128)
             .ok_or(ErrorCode::NumericalOverflow)?
             .checked_div(10000)

@@ -2,7 +2,7 @@
 seeds = false
 skip-lint = false
 
-[programs.localnet]
+[programs.devnet]
 marketplace_manager = "4GfNEbxCR7H49CpyJmrBsbZauvFhyviJXbKRZGKpNqVp"
 product_manager = "5SEgBUmoD6eMxbiD2hwNwFKXPj2cU6YtddZnC3DwiCDs"
 tender = "GGN4agBuV678P2M8SVJeEjeLU4maf7Rb7NH1ASMpV136"
@@ -11,7 +11,7 @@ tender = "GGN4agBuV678P2M8SVJeEjeLU4maf7Rb7NH1ASMpV136"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

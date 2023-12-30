@@ -6,4 +6,4 @@ pub struct BonusEvent {
     pub mint: String,
     pub amount: u64
 }
-
+// to-do
